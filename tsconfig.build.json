@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "declarationMap": true,
+    "emitDeclarationOnly": true,
+    "outDir": "dist/types",
+    "rootDir": "src"
+  },
+  "include": ["src"],
+  // The generated scene is a 550 KB string literal; its hand-written .d.ts
+  // next to it is what the importers resolve against
+  "exclude": ["src/native/sceneBundle.js"]
+}
