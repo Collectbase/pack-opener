@@ -1,0 +1,48 @@
+{
+  "name": "@collectbase/pack-opener",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Interactive pack-opening animation rendered by PixiJS, for React Native and the web",
+  "exports": {
+    ".": "./src/core/index.ts",
+    "./react": "./src/react/index.tsx",
+    "./native": "./src/native/index.tsx"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "build:scene": "node scripts/buildScene.mjs",
+    "verify:scene": "node scripts/buildScene.mjs --check",
+    "playground": "vite playground"
+  },
+  "peerDependencies": {
+    "pixi.js": "^8",
+    "react": ">=18",
+    "react-native": ">=0.76",
+    "react-native-reanimated": ">=3",
+    "react-native-webview": ">=13"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "pixi.js": "^8.19.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "vite": "^7.1.3"
+  },
+  "peerDependenciesMeta": {
+    "pixi.js": {
+      "optional": true
+    },
+    "react-native": {
+      "optional": true
+    },
+    "react-native-reanimated": {
+      "optional": true
+    },
+    "react-native-webview": {
+      "optional": true
+    }
+  }
+}

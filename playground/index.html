@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>pack-opener playground</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main>
+      <section id="stage"></section>
+      <aside id="panel">
+        <header>
+          <h1>pack&#8209;opener</h1>
+          <div class="row">
+            <button id="replay">Replay</button>
+            <button id="auto">Auto slice</button>
+          </div>
+          <p class="hint">Drag across the pack to cut it — mouse or finger.</p>
+        </header>
+        <div id="controls"></div>
+        <footer>
+          <h2>Events</h2>
+          <ol id="log"></ol>
+        </footer>
+      </aside>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
