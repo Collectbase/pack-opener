@@ -51,6 +51,7 @@ function applySpeed(motion: ResolvedOptions['motion']): ResolvedOptions['motion'
       unveilMs: scale(motion.reveal.unveilMs),
       beamMs: scale(motion.reveal.beamMs),
       holdMs: scale(motion.reveal.holdMs),
+      artWaitSpinMs: scale(motion.reveal.artWaitSpinMs),
     },
   };
 }
@@ -81,6 +82,7 @@ export function resolveOptions(options: PackOpenerOptions): ResolvedOptions {
     interaction: merge(preset.interaction, options.interaction),
     layout: merge(preset.layout, options.layout),
     hint: merge(preset.hint, options.hint),
+    performance: merge(preset.performance, options.performance),
   } as ResolvedOptions;
 
   resolved.motion = applySpeed(resolved.motion);

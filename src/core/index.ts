@@ -10,6 +10,12 @@ export interface PackOpenerEvent {
 }
 
 export interface PackOpenerInstance {
+  /**
+   * Retunes a running scene. Returns false when the change cannot be applied in
+   * place — a different variant, or different pack artwork — and the host has
+   * to mount the animation again to see it.
+   */
+  setOptions: (options: PackOpenerOptions) => boolean;
   /** Cut the pack without a gesture. */
   autoSlice: () => void;
   /** Put the pack back together and rearm the gesture. */
@@ -40,15 +46,21 @@ export async function createPackOpener(
     onEvent?.(payload ? {type, ...payload} : {type});
 
   const variant = variantOf(resolved.variant);
+  // The live option set: the frame caps and `setOptions` both read it
+  let current = resolved;
+  const isOpaque = (color?: string) => !!color && color !== 'transparent';
   const background = resolved.theme.background;
-  const opaque = !!background && background !== 'transparent';
+  const opaque = isOpaque(background);
 
   const app = new Application();
   await app.init({
     background: opaque ? background : undefined,
     backgroundAlpha: opaque ? 1 : 0,
-    antialias: true,
-    resolution: window.devicePixelRatio || 1,
+    antialias: resolved.performance.antialias,
+    resolution: Math.min(
+      window.devicePixelRatio || 1,
+      resolved.performance.resolutionCap,
+    ),
     autoDensity: true,
     // A full-page host (the WebView) tracks the window; an embedded canvas
     // tracks its own box, so the pack stays centred inside the element
@@ -83,7 +95,33 @@ export async function createPackOpener(
       .catch(() => {});
   }
 
-  const tick = (ticker: {deltaMS: number}) => scene.update(ticker.deltaMS);
+  // A phone-sized WebGL canvas redrawn 60 times a second is what makes a device
+  // hot, and the scene spends most of its life with nothing new to draw
+  const frameCapFor = (activity: string) => {
+    const perf = current.performance;
+    if (activity === 'idle') {
+      return Math.max(1, perf.sleepFps);
+    }
+    return activity === 'hint' ? perf.idleFps : perf.maxFps;
+  };
+
+  /**
+   * Back to full rate at once. A sleeping scene ticks about once a second, so a
+   * command arriving in that gap would sit there unanswered — long enough to
+   * read as the animation being stuck.
+   */
+  const wake = () => {
+    app.ticker.maxFPS = current.performance.maxFps;
+  };
+
+  const tick = (ticker: {deltaMS: number}) => {
+    scene.update(ticker.deltaMS);
+    const wanted = frameCapFor(scene.activity ?? 'busy');
+    if (app.ticker.maxFPS !== wanted) {
+      app.ticker.maxFPS = wanted;
+    }
+  };
+  app.ticker.maxFPS = resolved.performance.maxFps;
   app.ticker.add(tick);
 
   // Pointer events cover finger, stylus and mouse in one path — the scene only
@@ -94,6 +132,8 @@ export async function createPackOpener(
   };
 
   const onDown = (event: PointerEvent) => {
+    // A finger is the one input that must never wait for a slow frame
+    wake();
     // Capture keeps the cut following a finger that slides off the canvas
     try {
       canvas.setPointerCapture(event.pointerId);
@@ -129,9 +169,50 @@ export async function createPackOpener(
   });
 
   return {
-    autoSlice: () => scene.autoSlice(),
-    reset: () => scene.reset(),
-    setEnabled: (value: boolean) => scene.setEnabled(value),
+    setOptions: (next: PackOpenerOptions) => {
+      const nextResolved = resolveOptions(next);
+      // The scene is built around one pack texture and one mechanic; changing
+      // either is a new scene, not a new setting
+      if (
+        nextResolved.variant !== current.variant ||
+        nextResolved.assets.pack.url !== current.assets.pack.url ||
+        !scene.setOptions
+      ) {
+        return false;
+      }
+
+      const nextBackground = nextResolved.theme.background;
+      app.renderer.background.color = isOpaque(nextBackground)
+        ? nextBackground
+        : 0x000000;
+      app.renderer.background.alpha = isOpaque(nextBackground) ? 1 : 0;
+
+      if (nextResolved.assets.card.url !== current.assets.card.url) {
+        const url = nextResolved.assets.card.url;
+        if (url) {
+          Assets.load({src: url, loadParser: 'loadTextures'})
+            .then((texture: unknown) => scene.setCardTexture(texture))
+            .catch(() => {});
+        }
+      }
+
+      current = nextResolved;
+      scene.setOptions(nextResolved);
+      wake();
+      return true;
+    },
+    autoSlice: () => {
+      wake();
+      scene.autoSlice();
+    },
+    reset: () => {
+      wake();
+      scene.reset();
+    },
+    setEnabled: (value: boolean) => {
+      wake();
+      scene.setEnabled(value);
+    },
     destroy: () => {
       canvas.removeEventListener('pointerdown', onDown);
       canvas.removeEventListener('pointermove', onMove);

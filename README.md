@@ -28,6 +28,7 @@ const opener = await createPackOpener(document.querySelector('#stage'), {
 
 opener.autoSlice();   // cut it without a gesture
 opener.reset();       // put it back together
+opener.setOptions({assets: {pack: {url}}, motion: {speed: 2}});   // retune live
 opener.destroy();
 ```
 
@@ -70,7 +71,7 @@ import PackOpener from '@collectbase/pack-opener/native';
 />;
 ```
 
-`ref` exposes `autoSlice()`, `reset()` and `setEnabled()`.
+`ref` exposes `autoSlice()` and `reset()`; `disabled` covers ignoring input.
 
 The host owns everything around the animation. The package plays no haptics and
 ships no typography: it reports intents (`light` / `heavy` / `success`) and
@@ -84,20 +85,37 @@ URLs instead.
 
 ## Options
 
+Options can change while the animation is on screen. Pass a new object (React
+Native and React) or call `setOptions` on the handle (web) and the running scene
+picks it up — durations, colours and gesture thresholds take effect at once, and
+anything baked into a texture, such as the card's colours or its size, is rebuilt
+on the next `reset()` rather than mid-ceremony. Two things do need a new scene
+and cannot be retuned: a different `variant` and different pack artwork. The
+wrappers remount by themselves in that case; `setOptions` returns `false` so a
+direct caller knows.
+
 Anything left out falls back to the chosen preset, field by field: a `theme`
 with only `glow` set keeps the preset's card colours. `PackOpenerOptions` is the
 full, commented surface — in short:
+
+A hundred fields in eight groups — enough to build a noticeably different
+ceremony out of the same mechanic:
 
 | Group | What it covers |
 | --- | --- |
 | `variant` | Which animation mechanic runs. Today only `slice`. |
 | `preset` | Named set of numbers for that mechanic. Today only `classic`. |
 | `assets` | Pack and card artwork, and how long to wait for the card. |
-| `theme` | Background, rarity glow, rim, beam, sparks, hint, card back, corner radius. |
-| `motion` | Every duration, plus `speed` as a single multiplier over all of them. |
-| `interaction` | What counts as a swipe: activation distance, commit fraction, trail sampling, cut gap and the band it may travel through. |
-| `layout` | Card size relative to the pack. |
-| `hint` | The comet that mimes the swipe: position, sweep, tail, cadence. |
+| `theme` | Background, rarity glow, rim, bloom, beam, sparks, hint, the four card-back colours, corner radius. |
+| `motion` | Every duration, plus `speed` as one multiplier over all of them. How the lid is thrown, tumbled and faded; how far the emptied wrapper sinks; how the card turns, how thin it goes edge-on, how it is shaded; the beam's width, glow, tip and tail; the sparks' size, scatter and opacity; the opacity of all three glows. |
+| `interaction` | What counts as a swipe: activation distance, commit fraction, trail sampling, cut gap and raggedness, the band it may travel through, how the blade runs out, how often progress is reported, and the arc a programmatic cut follows. |
+| `layout` | Where the pack sits and how much of the stage it takes; the card's size and widest allowed ratio; the size and softness of the three glows. |
+| `hint` | The comet that mimes the swipe: position, sweep, head, tail, tail opacity and falloff, cadence. |
+| `performance` | Frame caps for moving, idling and sleeping; ceiling on the device pixel ratio; multisampling. |
+
+What is deliberately *not* in here: easing curves, and the order of the phases
+themselves. A different sequence of events is a different mechanic — that is
+what a variant is for, and adding one does not touch this shape.
 
 Two levels on purpose. A **variant** is a mechanic with its own scene module; a
 **preset** is a set of numbers for one variant. New styles arrive as variants,
@@ -106,6 +124,27 @@ new looks as presets, and neither changes the shape above.
 `classic` is the animation as it shipped in the app this was built for — every
 number in it was measured against the reference recording, so it is the baseline
 other presets are judged against.
+
+## Performance
+
+A WebGL canvas the size of a phone screen, redrawn sixty times a second, is what
+makes a device hot — and the scene spends most of its life with nothing new to
+draw: waiting for a finger, or holding a card that has already settled. So it
+throttles itself in three steps, all of them yours to change:
+
+```ts
+performance: {maxFps: 60, idleFps: 30, sleepFps: 1, resolutionCap: 2, antialias: true}
+```
+
+`maxFps` applies while something moves, `idleFps` while the pack just hangs
+there looping the hint, `sleepFps` once nothing changes at all. Commands and the
+first touch always restore the full rate immediately, so a sleeping scene never
+feels stuck. `resolutionCap` is the ceiling on the device pixel ratio the canvas
+is drawn at — phones report 3 and up, and each step multiplies the pixels the GPU
+shades for a scene made of soft glows, where the difference is hard to see.
+
+Turn the caps up if you are on a desktop and want it perfectly smooth; turn them
+down further on low-end phones.
 
 ## Events
 
@@ -192,8 +231,9 @@ pnpm playground      # http://localhost:5173 — /index.html and /react.html
 ```
 
 The playground runs on built-in placeholder artwork, so it works with no assets
-at hand, and every option in the schema is a live control there — the fastest
-way to see what a preset change does.
+at hand, and most of the schema is a live control there, grouped the way this
+README groups it — the fastest way to see what a number does. Sliders retune the
+running scene instead of restarting it.
 
 ## Not done yet
 

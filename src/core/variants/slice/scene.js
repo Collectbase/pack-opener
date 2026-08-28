@@ -175,9 +175,9 @@ function pointAt(path, distance) {
 
 /* ─── geometry ─────────────────────────────────────────────────────────── */
 
-function computePackRect(width, height, aspect, interaction) {
-  const maxWidth = width * 0.86;
-  const maxHeight = height * 0.66;
+function computePackRect(width, height, aspect, interaction, pack) {
+  const maxWidth = width * pack.widthRatio;
+  const maxHeight = height * pack.heightRatio;
   let w = maxWidth;
   let h = w / aspect;
   if (h > maxHeight) {
@@ -185,7 +185,7 @@ function computePackRect(width, height, aspect, interaction) {
     w = h * aspect;
   }
   const left = (width - w) / 2;
-  const top = (height - h) / 2 + height * 0.07;
+  const top = (height - h) / 2 + height * pack.offsetY;
 
   return {
     left,
@@ -319,7 +319,7 @@ function drawHint(g, rect, head, hint, color) {
     }
     g.circle(px, y, hint.headRadius * t).fill({
       color,
-      alpha: 0.75 * Math.pow(t, 1.6) * presence,
+      alpha: hint.tailAlpha * Math.pow(t, hint.tailFalloff) * presence,
     });
   }
 
@@ -374,6 +374,7 @@ export class PackScene {
       app.screen.height,
       aspect,
       this.o.interaction,
+      this.o.layout.pack,
     );
 
     this.uncut = new Sprite(texture);
@@ -412,6 +413,18 @@ export class PackScene {
 
   get points() {
     return this.trail;
+  }
+
+  /**
+   * Drives the engine's frame cap. `dirty` counts as busy: the masks are one
+   * redraw behind, and dropping to a sleeping frame rate before that lands
+   * would leave the pack half-cut on screen.
+   */
+  get activity() {
+    if (this.anim || this.dirty || this.intro < 1) {
+      return 'busy';
+    }
+    return this.hintAlpha > 0 ? 'hint' : 'idle';
   }
 
   redraw() {
@@ -496,7 +509,7 @@ export class PackScene {
     this.openness = this.progress;
     this.dirty = true;
 
-    if (this.progress - this.lastTick >= 0.07) {
+    if (this.progress - this.lastTick >= this.o.interaction.tickStep) {
       this.lastTick = this.progress;
       this.emit(MESSAGES.TICK, {progress: this.progress});
     }
@@ -564,7 +577,7 @@ export class PackScene {
     const aspect = this.cardTexture
       ? this.cardTexture.width / this.cardTexture.height
       : this.o.layout.card.aspect;
-    const ratio = Math.min(aspect, 0.8);
+    const ratio = Math.min(aspect, this.o.layout.card.maxRatio);
 
     // Capping the width has to shrink the height too, or the card comes out
     // stretched and the artwork gets cropped
@@ -586,20 +599,28 @@ export class PackScene {
     // Below the wrapper so the card looks like it slides out from inside
     this.root.addChildAt(this.cardRoot, 0);
 
+    const glow = this.o.layout.glow;
+
     this.bloom = new Sprite(makeBloomTexture(512, this.o.theme.bloom));
     this.bloom.anchor.set(0.5);
-    this.bloom.width = width * 3;
-    this.bloom.height = height * 2.2;
+    this.bloom.width = width * glow.bloomScaleX;
+    this.bloom.height = height * glow.bloomScaleY;
     this.bloom.blendMode = 'add';
     this.bloom.alpha = 0;
 
     // Tight white rim — the wide radial alone reads grey against the backdrop
     this.rim = new Sprite(
-      makeHaloTexture(width, height, this.o.theme.rim, 40, this.o.theme.cornerRadius),
+      makeHaloTexture(
+        width,
+        height,
+        this.o.theme.rim,
+        glow.rimSpread,
+        this.o.theme.cornerRadius,
+      ),
     );
     this.rim.anchor.set(0.5);
-    this.rim.width = width + 80;
-    this.rim.height = height + 80;
+    this.rim.width = width + glow.rimPadding;
+    this.rim.height = height + glow.rimPadding;
     this.rim.blendMode = 'add';
     this.rim.alpha = 0;
 
@@ -608,13 +629,13 @@ export class PackScene {
         width,
         height,
         this.o.theme.glow,
-        56,
+        glow.haloSpread,
         this.o.theme.cornerRadius,
       ),
     );
     this.halo.anchor.set(0.5);
-    this.halo.width = width + 112;
-    this.halo.height = height + 112;
+    this.halo.width = width + glow.haloPadding;
+    this.halo.height = height + glow.haloPadding;
     this.halo.blendMode = 'add';
     this.halo.alpha = 0;
 
@@ -638,7 +659,12 @@ export class PackScene {
 
     this.sparks = new Graphics();
     this.beam = new Graphics();
-    this.beamPath = outlinePath(width, height, this.o.theme.cornerRadius, 9);
+    this.beamPath = outlinePath(
+      width,
+      height,
+      this.o.theme.cornerRadius,
+      this.o.motion.reveal.outlineDetail,
+    );
 
     this.cardTurn.addChild(
       this.face,
@@ -688,15 +714,17 @@ export class PackScene {
     if (strength <= 0) {
       return;
     }
-    for (let i = 0; i < this.o.motion.reveal.sparks; i++) {
-      const t = (i + 0.5) / this.o.motion.reveal.sparks;
+    const reveal = this.o.motion.reveal;
+    for (let i = 0; i < reveal.sparks; i++) {
+      const t = (i + 0.5) / reveal.sparks;
       const wobble = jitterAt(i, 0);
-      const x = -width / 2 + width * t + wobble * 6;
-      const y = edgeY + wobble * 5;
-      const size = (1.3 + Math.abs(wobble) * 2.4) * strength;
+      const x = -width / 2 + width * t + wobble * reveal.sparkSpreadX;
+      const y = edgeY + wobble * reveal.sparkSpreadY;
+      const size =
+        (reveal.sparkSize + Math.abs(wobble) * reveal.sparkJitter) * strength;
       this.sparks
         .circle(x, y, size)
-        .fill({color: this.sparkColor, alpha: 0.85 * strength});
+        .fill({color: this.sparkColor, alpha: reveal.sparkAlpha * strength});
     }
   }
 
@@ -705,21 +733,26 @@ export class PackScene {
     const {width, height} = this.cardRect;
     const path = this.beamPath;
     const color = this.glowColor;
+    const reveal = this.o.motion.reveal;
 
     this.beam.clear();
 
     if (settled > 0) {
       this.beam
         .roundRect(-width / 2, -height / 2, width, height, this.o.theme.cornerRadius)
-        .stroke({width: 3, color, alpha: 0.9 * settled});
+        .stroke({
+          width: reveal.beamWidth,
+          color,
+          alpha: reveal.beamAlpha * settled,
+        });
     }
     if (progress <= 0 || progress >= 1) {
       return;
     }
 
     const head = progress * path.total;
-    const tail = path.total * this.o.motion.reveal.beamTail;
-    const steps = 24;
+    const tail = path.total * reveal.beamTail;
+    const steps = reveal.beamSteps;
     for (let i = 0; i < steps; i++) {
       const t0 = i / steps;
       const t1 = (i + 1) / steps;
@@ -729,16 +762,26 @@ export class PackScene {
       this.beam
         .moveTo(p0.x - width / 2, p0.y - height / 2)
         .lineTo(p1.x - width / 2, p1.y - height / 2)
-        .stroke({width: 11, color, alpha: alpha * 0.34, cap: 'round'})
+        .stroke({
+          width: reveal.beamGlowWidth,
+          color,
+          alpha: alpha * reveal.beamGlowAlpha,
+          cap: 'round',
+        })
         .moveTo(p0.x - width / 2, p0.y - height / 2)
         .lineTo(p1.x - width / 2, p1.y - height / 2)
-        .stroke({width: 3, color: this.beamColor, alpha, cap: 'round'});
+        .stroke({
+          width: reveal.beamWidth,
+          color: this.beamColor,
+          alpha,
+          cap: 'round',
+        });
     }
 
     const tip = pointAt(path, head);
     this.beam
-      .circle(tip.x - width / 2, tip.y - height / 2, 8)
-      .fill({color: this.beamColor, alpha: 0.9});
+      .circle(tip.x - width / 2, tip.y - height / 2, reveal.beamTipRadius)
+      .fill({color: this.beamColor, alpha: reveal.beamAlpha});
   }
 
   /** Everything the slide-out needs, resolved before the timeline starts. */
@@ -771,7 +814,9 @@ export class PackScene {
     }
     const waited = this.artWaitStart ? Date.now() - this.artWaitStart : 0;
     if (!this.cardTexture && waited < this.o.assets.card.timeoutMs) {
-      this.animate('spin', 600, () => this.startUnveil());
+      this.animate('spin', this.o.motion.reveal.artWaitSpinMs, () =>
+        this.startUnveil(),
+      );
       return;
     }
 
@@ -806,7 +851,7 @@ export class PackScene {
   updateCard(t) {
     const glow = clamp(t / this.o.motion.open.cardFrom, 0, 1);
     this.bloom.alpha = glow;
-    this.rim.alpha = glow * 0.9;
+    this.rim.alpha = glow * this.o.motion.reveal.rimAlpha;
 
     const p = clamp((t - this.o.motion.open.cardFrom) / (1 - this.o.motion.open.cardFrom), 0, 1);
     const eased = easeOut(p);
@@ -815,21 +860,24 @@ export class PackScene {
 
   updateReveal(kind, t) {
     const {height} = this.cardRect;
+    const reveal = this.o.motion.reveal;
 
     if (kind === 'spin') {
       // Eased, so the turn picks up from the slide-out and settles into the wipe
       // instead of starting and stopping at full speed
-      const angle = Math.PI * 2 * this.o.motion.reveal.spinTurns * easeInOut(t);
+      const angle = Math.PI * 2 * reveal.spinTurns * easeInOut(t);
       const cos = Math.cos(angle);
+      const flat = Math.max(Math.abs(cos), reveal.spinFlatness);
       // Scale alone reads as a turn; skewing on top of it looks like the card
       // is bent rather than rotating
-      this.cardTurn.scale.x = Math.max(Math.abs(cos), 0.06);
-      const shade = 0.95 + 0.05 * Math.abs(cos);
+      this.cardTurn.scale.x = flat;
+      const shade = 1 - reveal.spinShade + reveal.spinShade * Math.abs(cos);
       const tint = Math.round(255 * shade);
       this.back.tint = (tint << 16) | (tint << 8) | tint;
-      this.bloom.alpha = 0.85 + 0.15 * Math.abs(cos);
-      this.rim.alpha = 0.9;
-      this.rim.scale.x = this.rim.baseScaleX * Math.max(Math.abs(cos), 0.06);
+      this.bloom.alpha =
+        reveal.spinBloom + (1 - reveal.spinBloom) * Math.abs(cos);
+      this.rim.alpha = reveal.rimAlpha;
+      this.rim.scale.x = this.rim.baseScaleX * flat;
       return;
     }
 
@@ -842,9 +890,12 @@ export class PackScene {
 
       const eased = easeInOut(t);
       this.drawBackMask(1 - eased);
-      this.drawSparks(height / 2 - height * eased, Math.sin(Math.PI * t));
-      this.bloom.alpha = 0.95 * (1 - eased);
-      this.rim.alpha = 0.9 * (1 - eased);
+      // Sparks ride the wipe edge, which is the top of what the back still
+      // covers: `height / 2 - covered`. Measuring them from the opposite edge
+      // sent them up while the wipe went down.
+      this.drawSparks(-height / 2 + height * eased, Math.sin(Math.PI * t));
+      this.bloom.alpha = reveal.bloomAlpha * (1 - eased);
+      this.rim.alpha = reveal.rimAlpha * (1 - eased);
       this.rim.scale.x = this.rim.baseScaleX;
       return;
     }
@@ -853,13 +904,13 @@ export class PackScene {
       const eased = easeInOut(t);
       this.drawSparks(0, 0);
       this.drawBeam(eased, eased);
-      this.halo.alpha = eased * 0.95;
+      this.halo.alpha = eased * reveal.haloAlpha;
       return;
     }
 
     if (kind === 'hold') {
       this.drawBeam(1, 1);
-      this.halo.alpha = 0.95;
+      this.halo.alpha = reveal.haloAlpha;
     }
   }
 
@@ -880,12 +931,13 @@ export class PackScene {
   /** Point on the synthetic slice arc used by the tap-to-open fallback. */
   arcPoint(t) {
     const {rect} = this;
-    const x0 = rect.left + rect.width * 0.06;
-    const x1 = rect.right - rect.width * 0.06;
-    const y0 = rect.top + rect.height * 0.23;
-    const y1 = rect.top + rect.height * 0.17;
+    const arc = this.o.interaction.autoArc;
+    const x0 = rect.left + rect.width * arc.inset;
+    const x1 = rect.right - rect.width * arc.inset;
+    const y0 = rect.top + rect.height * arc.fromY;
+    const y1 = rect.top + rect.height * arc.toY;
     const cx = (x0 + x1) / 2;
-    const cy = rect.top + rect.height * 0.1;
+    const cy = rect.top + rect.height * arc.controlY;
     const mt = 1 - t;
 
     return {
@@ -920,7 +972,67 @@ export class PackScene {
     this.root.destroy({children: true});
   }
 
+  /**
+   * Applies new options to a live scene. Numbers and colours land immediately —
+   * the scene reads them where it uses them — but anything baked into a texture
+   * or into the pack rect waits for the next `reset()`: rebuilding the card
+   * mid-ceremony would strip the masks off the trail and blank the revealed art.
+   */
+  setOptions(next) {
+    const before = this.o;
+    this.o = next;
+    this.glowColor = toNumber(next.theme.glow);
+    this.beamColor = toNumber(next.theme.beam);
+    this.sparkColor = toNumber(next.theme.spark);
+    this.hintColor = toNumber(next.theme.hint);
+    this.dirty = true;
+
+    const baked =
+      JSON.stringify(before.theme) !== JSON.stringify(next.theme) ||
+      JSON.stringify(before.layout) !== JSON.stringify(next.layout) ||
+      JSON.stringify(before.interaction.band) !==
+        JSON.stringify(next.interaction.band);
+
+    if (!baked) {
+      this.redraw();
+      return;
+    }
+    if (this.anim || this.started) {
+      this.pendingRebuild = true;
+      return;
+    }
+    this.rebuild();
+  }
+
+  /** Re-derives the pack rect and the card, which bake options into textures. */
+  rebuild() {
+    this.pendingRebuild = false;
+    this.rect = computePackRect(
+      this.app.screen.width,
+      this.app.screen.height,
+      this.texture.width / this.texture.height,
+      this.o.interaction,
+      this.o.layout.pack,
+    );
+    for (const part of [this.uncut, this.bottom, this.top]) {
+      part.position.set(this.rect.left, this.rect.top);
+      part.width = this.rect.width;
+      part.height = this.rect.height;
+    }
+    if (this.cardRoot) {
+      this.cardRoot.destroy({children: true});
+      this.cardRoot = null;
+      this.buildCard();
+      this.rewindCard();
+    }
+    this.dirty = true;
+    this.redraw();
+  }
+
   reset() {
+    if (this.pendingRebuild) {
+      this.rebuild();
+    }
     this.anim = null;
     this.trail = [];
     this.dir = 0;
@@ -973,11 +1085,20 @@ export class PackScene {
       this.runOutFrom = {
         x: this.bladeX,
         y: this.bladeY,
-        slope: dx !== 0 ? clamp((last.y - prev.y) / dx, -0.8, 0.8) : 0,
+        slope:
+          dx !== 0
+            ? clamp(
+                (last.y - prev.y) / dx,
+                -this.o.interaction.finishSlopeLimit,
+                this.o.interaction.finishSlopeLimit,
+              )
+            : 0,
         targetX:
           this.dir > 0
-            ? this.rect.right + this.rect.width * 0.03
-            : this.rect.left - this.rect.width * 0.03,
+            ? this.rect.right +
+              this.rect.width * this.o.interaction.finishOvershoot
+            : this.rect.left -
+              this.rect.width * this.o.interaction.finishOvershoot,
       };
     }
     if (kind === 'retract') {
@@ -1025,7 +1146,7 @@ export class PackScene {
         this.progress = t;
         this.openness = t;
         this.dirty = true;
-        if (t - this.lastTick >= 0.07) {
+        if (t - this.lastTick >= this.o.interaction.tickStep) {
           this.lastTick = t;
           this.emit(MESSAGES.TICK, {progress: t});
         }
@@ -1110,14 +1231,16 @@ export class PackScene {
   /** The lid flying off. Owns nothing but the top half. */
   applyLid() {
     const {rect, release, dir} = this;
+    const open = this.o.motion.open;
     this.moveHalf(
       this.top,
       this.topMask,
-      dir * release * rect.width * 0.5,
-      -release * rect.height * 0.62,
-      dir * release * 0.5,
+      dir * release * rect.width * open.lidThrowX,
+      -release * rect.height * open.lidThrowY,
+      dir * release * open.lidSpin,
     );
-    this.top.alpha = 1 - clamp((release - 0.15) / 0.45, 0, 1);
+    this.top.alpha =
+      1 - clamp((release - open.lidFadeFrom) / open.lidFadeSpan, 0, 1);
   }
 
   /**
@@ -1136,7 +1259,7 @@ export class PackScene {
     const gone = clamp(t / this.o.motion.open.gone, 0, 1);
     this.bottom.alpha = 1 - gone;
     // The uncut copy has no business being visible past the tear
-    this.uncut.alpha = 1 - clamp(t / 0.18, 0, 1);
+    this.uncut.alpha = 1 - clamp(t / this.o.motion.open.uncutFade, 0, 1);
 
     const lip = this.cutY + drop;
     const freed = clamp(

@@ -76,6 +76,17 @@ export interface MotionOptions {
     gone?: number;
     /** When the clip stops tracking the lip and opens up. */
     clipFrom?: number;
+    /** How far the lid is thrown sideways, in pack widths. */
+    lidThrowX?: number;
+    /** How far up the lid is thrown, in pack heights. */
+    lidThrowY?: number;
+    /** How much the lid tumbles on its way out, in radians. */
+    lidSpin?: number;
+    /** The lid starts fading at this much of its throw, over this much of it. */
+    lidFadeFrom?: number;
+    lidFadeSpan?: number;
+    /** Share of the timeline the uncut copy takes to disappear. */
+    uncutFade?: number;
   };
   reveal?: {
     spinMs?: number;
@@ -87,6 +98,34 @@ export interface MotionOptions {
     spinTurns?: number;
     beamTail?: number;
     sparks?: number;
+    /** How thin the card gets edge-on. 0 is a perfect edge and reads as a gap. */
+    spinFlatness?: number;
+    /** How much darker the card back goes edge-on. */
+    spinShade?: number;
+    /** Bloom while the card turns: this at the edge, full face-on. */
+    spinBloom?: number;
+    /** Peak opacity of the three glows. */
+    bloomAlpha?: number;
+    rimAlpha?: number;
+    haloAlpha?: number;
+    /** The travelling beam: core line, the glow under it, and its bright tip. */
+    beamWidth?: number;
+    beamAlpha?: number;
+    beamGlowWidth?: number;
+    beamGlowAlpha?: number;
+    beamTipRadius?: number;
+    /** Segments the beam is drawn with, and corner detail of the path it runs. */
+    beamSteps?: number;
+    outlineDetail?: number;
+    /** Sparks thrown by the wipe: base size, extra size from jitter, opacity. */
+    sparkSize?: number;
+    sparkJitter?: number;
+    sparkAlpha?: number;
+    /** How far sparks scatter from the wipe edge, in css px. */
+    sparkSpreadX?: number;
+    sparkSpreadY?: number;
+    /** One turn of the card while it waits for late artwork. */
+    artWaitSpinMs?: number;
   };
 }
 
@@ -108,9 +147,34 @@ export interface InteractionOptions {
   overshoot?: number;
   /** Vertical band of the pack the cut may travel through, top-down. */
   band?: {top?: number; bottom?: number};
+  /** How far past the edge the blade runs out after the cut is committed. */
+  finishOvershoot?: number;
+  /** Steepest the run-out may follow the trail — keeps it from diving off. */
+  finishSlopeLimit?: number;
+  /** How often progress is reported while the cut runs, as a share of it. */
+  tickStep?: number;
+  /**
+   * The arc a programmatic cut follows, since there is no finger to trace:
+   * inset from both sides, where it starts and ends, and the control point that
+   * bends it. All in pack widths and heights.
+   */
+  autoArc?: {
+    inset?: number;
+    fromY?: number;
+    toY?: number;
+    controlY?: number;
+  };
 }
 
 export interface LayoutOptions {
+  /** Where the pack sits and how much of the stage it takes. */
+  pack?: {
+    /** Caps against the stage; the artwork's own aspect decides the rest. */
+    widthRatio?: number;
+    heightRatio?: number;
+    /** Nudge down from the centre, in stage heights — leaves room for a hint. */
+    offsetY?: number;
+  };
   /**
    * Card size relative to the pack. It has to read as something that came out
    * of the wrapper, so the width is capped against the pack, not the screen.
@@ -121,6 +185,20 @@ export interface LayoutOptions {
     packWidthRatio?: number;
     /** Fallback aspect until the artwork's own ratio is known. */
     aspect?: number;
+    /** Widest the card may get, whatever the artwork's ratio says. */
+    maxRatio?: number;
+  };
+  /**
+   * Size of the three glows around the card. Spread is the softness baked into
+   * the texture, padding is how far the sprite reaches past the card.
+   */
+  glow?: {
+    bloomScaleX?: number;
+    bloomScaleY?: number;
+    rimSpread?: number;
+    rimPadding?: number;
+    haloSpread?: number;
+    haloPadding?: number;
   };
 }
 
@@ -135,10 +213,40 @@ export interface HintOptions {
   tail?: number;
   /** Tail resolution — discs have to overlap, or the tail reads as beads. */
   segments?: number;
+  /** Opacity of the tail at the head, and how fast it falls off behind it. */
+  tailAlpha?: number;
+  tailFalloff?: number;
   /** One pass of the hint, and the pause between passes. */
   loopMs?: number;
   idleMs?: number;
   fadeMs?: number;
+}
+
+/**
+ * What the scene is allowed to spend. A WebGL canvas the size of a phone screen
+ * redrawn sixty times a second is what makes a device hot, and most of the time
+ * the scene has nothing new to draw: it is waiting for a finger, or the card has
+ * already settled. These caps are the difference between a ceremony and a heater.
+ */
+export interface PerformanceOptions {
+  /** Frame cap while something is actually moving. */
+  maxFps?: number;
+  /** Frame cap while the pack just hangs there and the hint loops. */
+  idleFps?: number;
+  /**
+   * Frame cap once everything has settled and nothing changes until the host
+   * asks for something. Keep it above zero — the scene still has to hear
+   * `reset()` and option changes.
+   */
+  sleepFps?: number;
+  /**
+   * Ceiling on the device pixel ratio the canvas is drawn at. Phones report 3
+   * and up; every step doubles the pixels the GPU has to shade for a scene made
+   * of soft glows, where the difference is hard to see.
+   */
+  resolutionCap?: number;
+  /** Multisampling. Cheap on a desktop GPU, not on a phone. */
+  antialias?: boolean;
 }
 
 export interface PackOpenerOptions {
@@ -150,6 +258,7 @@ export interface PackOpenerOptions {
   interaction?: InteractionOptions;
   layout?: LayoutOptions;
   hint?: HintOptions;
+  performance?: PerformanceOptions;
 }
 
 /** Every field filled in — what the scene actually runs on. */

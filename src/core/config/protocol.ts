@@ -22,6 +22,8 @@ export const COMMANDS = {
   AUTO_SLICE: 'autoSlice',
   RESET: 'reset',
   SET_ENABLED: 'setEnabled',
+  /** Retune a running scene instead of reloading the page. */
+  SET_OPTIONS: 'setOptions',
 } as const;
 
 export type MessageType = (typeof MESSAGES)[keyof typeof MESSAGES];

@@ -52,13 +52,73 @@ const GROUPS: {title: string; controls: Control[]}[] = [
     ],
   },
   {
-    title: 'Layout & hint',
+    title: 'Lid & wrapper',
     controls: [
+      {kind: 'range', path: 'motion.open.lid', label: 'Lid share of timeline', min: 0.1, max: 0.9, step: 0.01},
+      {kind: 'range', path: 'motion.open.lidThrowX', label: 'Lid throw sideways', min: 0, max: 2, step: 0.05},
+      {kind: 'range', path: 'motion.open.lidThrowY', label: 'Lid throw up', min: 0, max: 2, step: 0.05},
+      {kind: 'range', path: 'motion.open.lidSpin', label: 'Lid tumble, rad', min: -2, max: 2, step: 0.05},
+      {kind: 'range', path: 'motion.open.cardFrom', label: 'Card starts at', min: 0.05, max: 0.9, step: 0.01},
+      {kind: 'range', path: 'motion.open.sink', label: 'Wrapper sink', min: 0, max: 1.5, step: 0.05},
+      {kind: 'range', path: 'motion.open.gone', label: 'Wrapper gone by', min: 0.2, max: 1, step: 0.01},
+    ],
+  },
+  {
+    title: 'Card & glows',
+    controls: [
+      {kind: 'range', path: 'motion.reveal.spinTurns', label: 'Turns', min: 0.5, max: 6, step: 0.5},
+      {kind: 'range', path: 'motion.reveal.spinFlatness', label: 'Edge-on thinness', min: 0.01, max: 0.4, step: 0.01},
+      {kind: 'range', path: 'motion.reveal.spinShade', label: 'Edge-on shading', min: 0, max: 0.5, step: 0.01},
+      {kind: 'color', path: 'theme.rim', label: 'Rim'},
+      {kind: 'color', path: 'theme.bloom', label: 'Bloom'},
+      {kind: 'range', path: 'motion.reveal.haloAlpha', label: 'Halo opacity', min: 0, max: 1, step: 0.05},
+      {kind: 'range', path: 'motion.reveal.bloomAlpha', label: 'Bloom opacity', min: 0, max: 1, step: 0.05},
+      {kind: 'range', path: 'layout.glow.haloPadding', label: 'Halo reach, px', min: 0, max: 300, step: 4},
+      {kind: 'range', path: 'layout.glow.haloSpread', label: 'Halo softness', min: 4, max: 160, step: 4},
+      {kind: 'range', path: 'layout.glow.rimPadding', label: 'Rim reach, px', min: 0, max: 200, step: 4},
+      {kind: 'range', path: 'layout.glow.bloomScaleX', label: 'Bloom width ×', min: 1, max: 6, step: 0.1},
+      {kind: 'range', path: 'layout.glow.bloomScaleY', label: 'Bloom height ×', min: 1, max: 6, step: 0.1},
+    ],
+  },
+  {
+    title: 'Beam & sparks',
+    controls: [
+      {kind: 'range', path: 'motion.reveal.beamTail', label: 'Beam tail', min: 0.05, max: 1, step: 0.01},
+      {kind: 'range', path: 'motion.reveal.beamWidth', label: 'Beam width, px', min: 1, max: 12, step: 0.5},
+      {kind: 'range', path: 'motion.reveal.beamGlowWidth', label: 'Beam glow, px', min: 0, max: 40, step: 1},
+      {kind: 'range', path: 'motion.reveal.beamGlowAlpha', label: 'Beam glow opacity', min: 0, max: 1, step: 0.02},
+      {kind: 'range', path: 'motion.reveal.beamTipRadius', label: 'Beam tip, px', min: 0, max: 24, step: 1},
+      {kind: 'color', path: 'theme.spark', label: 'Sparks'},
+      {kind: 'range', path: 'motion.reveal.sparkSize', label: 'Spark size', min: 0.2, max: 6, step: 0.1},
+      {kind: 'range', path: 'motion.reveal.sparkJitter', label: 'Spark size spread', min: 0, max: 8, step: 0.1},
+      {kind: 'range', path: 'motion.reveal.sparkSpreadX', label: 'Spark scatter x, px', min: 0, max: 30, step: 1},
+      {kind: 'range', path: 'motion.reveal.sparkSpreadY', label: 'Spark scatter y, px', min: 0, max: 30, step: 1},
+    ],
+  },
+  {
+    title: 'Layout',
+    controls: [
+      {kind: 'range', path: 'layout.pack.widthRatio', label: 'Pack width / stage', min: 0.3, max: 1, step: 0.01},
+      {kind: 'range', path: 'layout.pack.heightRatio', label: 'Pack height / stage', min: 0.3, max: 1, step: 0.01},
+      {kind: 'range', path: 'layout.pack.offsetY', label: 'Pack offset down', min: -0.3, max: 0.3, step: 0.01},
       {kind: 'range', path: 'layout.card.heightRatio', label: 'Card height / pack', min: 0.4, max: 1.4, step: 0.01},
       {kind: 'range', path: 'layout.card.packWidthRatio', label: 'Card width / pack', min: 0.3, max: 1.2, step: 0.01},
+      {kind: 'range', path: 'layout.card.maxRatio', label: 'Card widest ratio', min: 0.4, max: 1.6, step: 0.02},
+    ],
+  },
+  {
+    title: 'Hint & auto cut',
+    controls: [
       {kind: 'range', path: 'hint.lineRatio', label: 'Hint line', min: 0, max: 0.6, step: 0.01},
       {kind: 'range', path: 'hint.sweep', label: 'Hint sweep', min: 0.2, max: 1, step: 0.01},
+      {kind: 'range', path: 'hint.tail', label: 'Hint tail', min: 0, max: 1, step: 0.02},
+      {kind: 'range', path: 'hint.headRadius', label: 'Hint head, px', min: 1, max: 24, step: 1},
+      {kind: 'range', path: 'hint.tailAlpha', label: 'Hint tail opacity', min: 0, max: 1, step: 0.05},
+      {kind: 'range', path: 'hint.tailFalloff', label: 'Hint tail falloff', min: 0.5, max: 4, step: 0.1},
       {kind: 'range', path: 'hint.loopMs', label: 'Hint loop, ms', min: 400, max: 4000, step: 100},
+      {kind: 'range', path: 'hint.idleMs', label: 'Hint pause, ms', min: 0, max: 3000, step: 100},
+      {kind: 'range', path: 'interaction.autoArc.fromY', label: 'Auto cut starts at', min: 0, max: 0.8, step: 0.01},
+      {kind: 'range', path: 'interaction.autoArc.controlY', label: 'Auto cut bend', min: -0.2, max: 0.8, step: 0.01},
     ],
   },
 ];
@@ -146,11 +206,16 @@ async function mount() {
   }
 }
 
-// Rebuilding on every slider step would restart the animation mid-drag
+// Applied to the running scene, so dragging a slider does not restart the
+// ceremony; if the change needs a new scene the engine says so and we remount.
 let pending: number | undefined;
-const remount = () => {
+const apply = () => {
   window.clearTimeout(pending);
-  pending = window.setTimeout(mount, 220);
+  pending = window.setTimeout(() => {
+    if (!instance || !instance.setOptions(options)) {
+      void mount();
+    }
+  }, 120);
 };
 
 function buildPanel() {
@@ -183,7 +248,7 @@ function buildPanel() {
         input.addEventListener('input', () => {
           value.textContent = input.value;
           set(control.path, Number(input.value));
-          remount();
+          apply();
         });
         label.append(value, input);
       } else if (control.kind === 'color') {
@@ -192,7 +257,7 @@ function buildPanel() {
         input.value = String(get(control.path) ?? resolvedDefault(control.path));
         input.addEventListener('input', () => {
           set(control.path, input.value);
-          remount();
+          apply();
         });
         label.append(input);
       } else {
@@ -205,7 +270,7 @@ function buildPanel() {
             control.path,
             url || (control.path.includes('pack') ? DEFAULTS.pack : DEFAULTS.card),
           );
-          remount();
+          apply();
         });
         label.append(input);
       }

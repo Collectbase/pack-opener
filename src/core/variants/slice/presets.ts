@@ -1,8 +1,8 @@
 import type {PresetName, ResolvedOptions} from '../../config/types';
 
 /**
- * `classic` is the animation as it shipped in the Collectibles app — every
- * number here was measured against the reference recording, so it is the
+ * `classic` is the animation as it shipped in the app this was built for —
+ * every number here was measured against the reference recording, so it is the
  * baseline other presets are judged against rather than an arbitrary default.
  *
  * Presets live with their variant: the numbers only mean anything to the scene
@@ -40,6 +40,12 @@ export const PRESETS: Record<PresetName, Omit<ResolvedOptions, 'variant' | 'pres
         sink: 0.5,
         gone: 0.8,
         clipFrom: 0.45,
+        lidThrowX: 0.5,
+        lidThrowY: 0.62,
+        lidSpin: 0.5,
+        lidFadeFrom: 0.15,
+        lidFadeSpan: 0.45,
+        uncutFade: 0.18,
       },
       reveal: {
         spinMs: 3400,
@@ -49,6 +55,25 @@ export const PRESETS: Record<PresetName, Omit<ResolvedOptions, 'variant' | 'pres
         spinTurns: 2,
         beamTail: 0.32,
         sparks: 26,
+        spinFlatness: 0.06,
+        spinShade: 0.05,
+        spinBloom: 0.85,
+        bloomAlpha: 0.95,
+        rimAlpha: 0.9,
+        haloAlpha: 0.95,
+        beamWidth: 3,
+        beamAlpha: 0.9,
+        beamGlowWidth: 11,
+        beamGlowAlpha: 0.34,
+        beamTipRadius: 8,
+        beamSteps: 24,
+        outlineDetail: 9,
+        sparkSize: 1.3,
+        sparkJitter: 2.4,
+        sparkAlpha: 0.85,
+        sparkSpreadX: 6,
+        sparkSpreadY: 5,
+        artWaitSpinMs: 600,
       },
     },
     interaction: {
@@ -61,12 +86,30 @@ export const PRESETS: Record<PresetName, Omit<ResolvedOptions, 'variant' | 'pres
       edgeJitter: 0.55,
       overshoot: 48,
       band: {top: 0.05, bottom: 0.62},
+      finishOvershoot: 0.03,
+      finishSlopeLimit: 0.8,
+      tickStep: 0.07,
+      autoArc: {inset: 0.06, fromY: 0.23, toY: 0.17, controlY: 0.1},
     },
     layout: {
+      pack: {
+        widthRatio: 0.86,
+        heightRatio: 0.66,
+        offsetY: 0.07,
+      },
       card: {
         heightRatio: 0.95,
         packWidthRatio: 0.64,
         aspect: 0.66,
+        maxRatio: 0.8,
+      },
+      glow: {
+        bloomScaleX: 3,
+        bloomScaleY: 2.2,
+        rimSpread: 40,
+        rimPadding: 80,
+        haloSpread: 56,
+        haloPadding: 112,
       },
     },
     hint: {
@@ -75,9 +118,18 @@ export const PRESETS: Record<PresetName, Omit<ResolvedOptions, 'variant' | 'pres
       headRadius: 8,
       tail: 0.34,
       segments: 80,
+      tailAlpha: 0.75,
+      tailFalloff: 1.6,
       loopMs: 1700,
       idleMs: 700,
       fadeMs: 200,
+    },
+    performance: {
+      maxFps: 60,
+      idleFps: 30,
+      sleepFps: 1,
+      resolutionCap: 2,
+      antialias: true,
     },
   },
 };

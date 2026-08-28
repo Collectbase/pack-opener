@@ -41,6 +41,20 @@ export interface VariantInstance {
   /** Card artwork usually arrives after the animation has started. */
   setCardTexture: (texture: unknown) => void;
 
+  /**
+   * New options for a scene that is already running. Optional: a variant that
+   * cannot retune itself simply omits it and the engine remounts instead.
+   */
+  setOptions?: (options: ResolvedOptions) => void;
+
+  /**
+   * What the scene is doing right now, so the engine can throttle the frame
+   * rate: `busy` while anything moves, `hint` while it only loops the hint,
+   * `idle` once nothing changes. A variant that omits it is always driven at
+   * full rate.
+   */
+  activity?: 'busy' | 'hint' | 'idle';
+
   /** Where the pack was drawn — hosts hang their own UI off it. */
   rect: {
     left: number;

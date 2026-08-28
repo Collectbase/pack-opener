@@ -135,6 +135,11 @@ const PackOpener = forwardRef<PackOpenerHandle, PackOpenerProps>(
     // Compared by value: an options object rebuilt on every render must not
     // remount the scene
     const optionsKey = JSON.stringify(options);
+    // Only a different mechanic or different pack artwork needs a new scene;
+    // every other option is applied to the running one
+    const bootKey = `${options.variant ?? ''}|${options.assets?.pack?.url ?? ''}`;
+    const latestOptions = useRef(options);
+    latestOptions.current = options;
 
     useEffect(() => {
       const host = hostRef.current;
@@ -143,7 +148,7 @@ const PackOpener = forwardRef<PackOpenerHandle, PackOpenerProps>(
       }
       let cancelled = false;
 
-      createPackOpener(host, JSON.parse(optionsKey), {onEvent: onSceneEvent})
+      createPackOpener(host, latestOptions.current, {onEvent: onSceneEvent})
         .then(instance => {
           if (cancelled) {
             instance.destroy();
@@ -162,7 +167,17 @@ const PackOpener = forwardRef<PackOpenerHandle, PackOpenerProps>(
         instanceRef.current?.destroy();
         instanceRef.current = null;
       };
-    }, [optionsKey, onSceneEvent]);
+      // `latestOptions` is deliberately not a dependency: the scene is mounted
+      // from whatever the options are at that moment, and later changes go
+      // through the effect below instead of remounting
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [bootKey, onSceneEvent]);
+
+    // Retune the running scene. A false return means the change needs a fresh
+    // scene, which the mount effect above is already doing.
+    useEffect(() => {
+      instanceRef.current?.setOptions(JSON.parse(optionsKey));
+    }, [optionsKey]);
 
     useImperativeHandle(
       ref,

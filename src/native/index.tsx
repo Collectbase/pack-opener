@@ -2,6 +2,7 @@ import React, {
   forwardRef,
   memo,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -111,13 +112,17 @@ const PackOpener = forwardRef<PackOpenerHandle, PackOpenerProps>(
     // Chrome around the pack fades out the moment the cut begins
     const [cutting, setCutting] = useState(false);
 
-    // `options` arrives as a fresh object on every render, so the page is
-    // rebuilt by value — an identity change would reload the WebView and
-    // restart the animation mid-gesture
+    // `options` arrives as a fresh object on every render, so it is compared by
+    // value — an identity change must not reload the WebView and restart the
+    // animation mid-gesture. Only a different mechanic or different pack
+    // artwork needs a new page; every other option is pushed into the running
+    // scene further down.
     const optionsKey = JSON.stringify(options);
-    const html = useMemo(() => buildSceneHtml(JSON.parse(optionsKey)), [
-      optionsKey,
-    ]);
+    const bootKey = `${options.variant ?? ''}|${options.assets?.pack?.url ?? ''}`;
+    const latestOptions = useRef(options);
+    latestOptions.current = options;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const html = useMemo(() => buildSceneHtml(latestOptions.current), [bootKey]);
     const packUrl = options.assets?.pack?.url;
     const baseUrl = useMemo(() => originOf(packUrl), [packUrl]);
 
@@ -126,6 +131,17 @@ const PackOpener = forwardRef<PackOpenerHandle, PackOpenerProps>(
         `window.__packScene && window.__packScene.${command};true;`,
       );
     }, []);
+
+    // The page boots with the options it was built from, so only later changes
+    // have to cross the bridge
+    const applied = useRef(optionsKey);
+    useEffect(() => {
+      if (!ready || applied.current === optionsKey) {
+        return;
+      }
+      applied.current = optionsKey;
+      send(`${COMMANDS.SET_OPTIONS}(${optionsKey})`);
+    }, [optionsKey, ready, send]);
 
     useImperativeHandle(
       ref,
