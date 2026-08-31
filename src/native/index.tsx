@@ -58,6 +58,8 @@ export interface PackOpenerProps {
   renderFallback?: () => ReactNode;
   onHaptic?: (intent: HapticIntent) => void;
   onInteractionStart?: () => void;
+  /** The cut was let go of before it finished — the pack is untouched again. */
+  onInteractionCancel?: () => void;
   /** The lid is off — the pack counts as opened from here. */
   onOpenComplete?: () => void;
   /** The whole ceremony has played out. */
@@ -93,6 +95,7 @@ const PackOpener = forwardRef<PackOpenerHandle, PackOpenerProps>(
       renderFallback,
       onHaptic,
       onInteractionStart,
+      onInteractionCancel,
       onOpenComplete,
       onRevealComplete,
       onError,
@@ -204,6 +207,7 @@ const PackOpener = forwardRef<PackOpenerHandle, PackOpenerProps>(
             break;
           case MESSAGES.RETRACTED:
             setCutting(false);
+            onInteractionCancel?.();
             break;
           case MESSAGES.ERROR:
             setFailed(true);
@@ -216,6 +220,7 @@ const PackOpener = forwardRef<PackOpenerHandle, PackOpenerProps>(
       [
         onError,
         onHaptic,
+        onInteractionCancel,
         onInteractionStart,
         onOpenComplete,
         onRevealComplete,

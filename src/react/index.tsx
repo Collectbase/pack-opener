@@ -43,7 +43,8 @@ export interface PackOpenerProps {
   onOpenComplete?: () => void;
   /** The whole ceremony has played out; `card` is where the card came to rest. */
   onRevealComplete?: (card?: Rect) => void;
-  onReset?: () => void;
+  /** The cut was let go of before it finished — the pack is untouched again. */
+  onInteractionCancel?: () => void;
   onError?: (message: string) => void;
   /** Every event, raw — for hosts that would rather switch themselves. */
   onEvent?: (event: PackOpenerEvent) => void;
@@ -65,7 +66,7 @@ const PackOpener = forwardRef<PackOpenerHandle, PackOpenerProps>(
       onCommitted,
       onOpenComplete,
       onRevealComplete,
-      onReset,
+      onInteractionCancel,
       onError,
       onEvent,
     },
@@ -83,7 +84,7 @@ const PackOpener = forwardRef<PackOpenerHandle, PackOpenerProps>(
       onCommitted,
       onOpenComplete,
       onRevealComplete,
-      onReset,
+      onInteractionCancel,
       onError,
       onEvent,
     });
@@ -94,7 +95,7 @@ const PackOpener = forwardRef<PackOpenerHandle, PackOpenerProps>(
       onCommitted,
       onOpenComplete,
       onRevealComplete,
-      onReset,
+      onInteractionCancel,
       onError,
       onEvent,
     };
@@ -122,7 +123,7 @@ const PackOpener = forwardRef<PackOpenerHandle, PackOpenerProps>(
           h.onRevealComplete?.(event.card as Rect | undefined);
           break;
         case MESSAGES.RETRACTED:
-          h.onReset?.();
+          h.onInteractionCancel?.();
           break;
         case MESSAGES.ERROR:
           h.onError?.(String(event.message ?? 'scene error'));
