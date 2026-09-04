@@ -33,7 +33,10 @@ export interface PackOpenerProps {
   options: PackOpenerOptions;
   className?: string;
   style?: CSSProperties;
-  /** Fires once the scene has drawn the pack; `rect` is where it put it. */
+  /**
+   * Fires once the scene has drawn the pack, and again whenever the pack moves
+   * — a resized window, a rotated phone. `rect` is where it is now.
+   */
   onReady?: (rect: Rect) => void;
   onInteractionStart?: () => void;
   /** Cut progress, 0..1 — the RN host turns these into haptic ticks. */
@@ -105,6 +108,7 @@ const PackOpener = forwardRef<PackOpenerHandle, PackOpenerProps>(
       h.onEvent?.(event);
       switch (event.type) {
         case MESSAGES.READY:
+        case MESSAGES.LAYOUT:
           h.onReady?.(event.rect as Rect);
           break;
         case MESSAGES.INTERACTION_START:

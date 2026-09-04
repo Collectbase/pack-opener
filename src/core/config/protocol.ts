@@ -14,6 +14,9 @@ export const MESSAGES = {
   /** Card reveal finished — the host may move on to its result screen. */
   REVEALED: 'revealed',
   RETRACTED: 'retracted',
+  /** The stage changed size — a rotated phone, a resized window — and the pack
+   * was re-derived for the new box; `rect` is where it is now. */
+  LAYOUT: 'layout',
   ERROR: 'error',
 } as const;
 

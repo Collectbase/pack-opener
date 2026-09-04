@@ -1,4 +1,4 @@
-import {Application, Assets} from 'pixi.js';
+import {Application, Assets, Texture} from 'pixi.js';
 import {MESSAGES} from './config/protocol';
 import {resolveOptions} from './config/resolve';
 import type {PackOpenerOptions} from './config/types';
@@ -27,6 +27,28 @@ export interface PackOpenerInstance {
 
 export interface CreateOptions {
   onEvent?: (event: PackOpenerEvent) => void;
+}
+
+/**
+ * Pixi decodes textures off the main thread, which means fetch — and a blocking
+ * extension or a corporate proxy can refuse that request while an <img> for the
+ * same URL still loads. Artwork the host could display is not a reason to drop
+ * the ceremony, so a refused fetch is retried the slow way.
+ */
+async function loadTexture(url: string) {
+  try {
+    return await Assets.load({src: url, loadParser: 'loadTextures'});
+  } catch {
+    const image = new Image();
+    // WebGL refuses to sample an image fetched without CORS
+    image.crossOrigin = 'anonymous';
+    await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve();
+      image.onerror = () => reject(new Error(`could not load ${url}`));
+      image.src = url;
+    });
+    return Texture.from(image);
+  }
 }
 
 /**
@@ -72,14 +94,19 @@ export async function createPackOpener(
   canvas.style.display = 'block';
   // Without this the browser claims the gesture for scrolling mid-cut
   canvas.style.touchAction = 'none';
+  // A drag across a canvas is otherwise read as a text selection or an image
+  // drag, so the cut leaves a highlight trailing behind it and the pointer
+  // turns into a drag ghost
+  canvas.style.userSelect = 'none';
+  canvas.style.setProperty('-webkit-user-select', 'none');
+  canvas.style.setProperty('-webkit-user-drag', 'none');
+  // Long-pressing the pack on iOS would offer to save the canvas as an image
+  canvas.style.setProperty('-webkit-touch-callout', 'none');
   target.appendChild(canvas);
 
   let texture;
   try {
-    texture = await Assets.load({
-      src: resolved.assets.pack.url,
-      loadParser: 'loadTextures',
-    });
+    texture = await loadTexture(resolved.assets.pack.url);
   } catch (error) {
     app.destroy(true, {children: true});
     throw error;
@@ -90,7 +117,7 @@ export async function createPackOpener(
   // The card can arrive late: the scene waits for it and finishes without it
   // once `assets.card.timeoutMs` runs out
   if (resolved.assets.card.url) {
-    Assets.load({src: resolved.assets.card.url, loadParser: 'loadTextures'})
+    loadTexture(resolved.assets.card.url)
       .then((cardTexture: unknown) => scene.setCardTexture(cardTexture))
       .catch(() => {});
   }
@@ -131,7 +158,19 @@ export async function createPackOpener(
     return {x: event.clientX - rect.left, y: event.clientY - rect.top};
   };
 
+  // A mouse reports movement while nothing is pressed, so the scene may only
+  // hear about a drag it has seen begin — a finger has no such state to track
+  let dragging = false;
+
   const onDown = (event: PointerEvent) => {
+    // The cut is a primary-button drag: a right- or middle-click keeps its
+    // native behaviour and must not slice the pack
+    if (event.button !== 0) {
+      return;
+    }
+    // Claims the gesture before the browser starts selecting or dragging with
+    // it — unconditionally, so a press outside the pack cannot start one either
+    event.preventDefault();
     // A finger is the one input that must never wait for a slow frame
     wake();
     // Capture keeps the cut following a finger that slides off the canvas
@@ -140,14 +179,28 @@ export async function createPackOpener(
     } catch {
       /* capture is a nicety, not a requirement */
     }
+    dragging = true;
     const p = local(event);
     scene.onDown(p.x, p.y);
   };
   const onMove = (event: PointerEvent) => {
+    if (!dragging) {
+      return;
+    }
+    // Letting go outside the window swallows the pointerup, so the button state
+    // is the only honest word on whether the drag is still going
+    if (event.buttons === 0 && event.pointerType === 'mouse') {
+      onUp(event);
+      return;
+    }
     const p = local(event);
     scene.onMove(p.x, p.y);
   };
   const onUp = (event: PointerEvent) => {
+    if (!dragging) {
+      return;
+    }
+    dragging = false;
     try {
       canvas.releasePointerCapture(event.pointerId);
     } catch {
@@ -156,6 +209,17 @@ export async function createPackOpener(
     scene.onUp();
   };
 
+  const onDragStart = (event: Event) => event.preventDefault();
+
+  /**
+   * A rotated phone or a resized window leaves the pack sized for a stage that
+   * is gone, so the scene re-derives it. The scene reports the new geometry
+   * itself — it does the same after a retune, which changes it just as much.
+   */
+  const onResize = () => scene.resize?.();
+  app.renderer.on('resize', onResize);
+
+  canvas.addEventListener('dragstart', onDragStart);
   canvas.addEventListener('pointerdown', onDown);
   canvas.addEventListener('pointermove', onMove);
   canvas.addEventListener('pointerup', onUp);
@@ -214,6 +278,8 @@ export async function createPackOpener(
       scene.setEnabled(value);
     },
     destroy: () => {
+      app.renderer.off('resize', onResize);
+      canvas.removeEventListener('dragstart', onDragStart);
       canvas.removeEventListener('pointerdown', onDown);
       canvas.removeEventListener('pointermove', onMove);
       canvas.removeEventListener('pointerup', onUp);

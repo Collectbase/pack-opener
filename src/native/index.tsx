@@ -185,6 +185,12 @@ const PackOpener = forwardRef<PackOpenerHandle, PackOpenerProps>(
               setPackRect(data.rect);
             }
             break;
+          case MESSAGES.LAYOUT:
+            // The pack was re-derived for a new stage size — the hint follows it
+            if (data.rect) {
+              setPackRect(data.rect);
+            }
+            break;
           case MESSAGES.INTERACTION_START:
             setCutting(true);
             onInteractionStart?.();

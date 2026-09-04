@@ -363,6 +363,19 @@ export class PackScene {
     this.rebuild();
   }
 
+  /**
+   * The stage changed size. Rebuilding mid-cut would strip the masks off the
+   * trail and blank the revealed art, so a ceremony in flight keeps the pack it
+   * started with and the new geometry rides on the next `reset()`.
+   */
+  resize() {
+    if (this.anim || this.started) {
+      this.pendingRebuild = true;
+      return;
+    }
+    this.rebuild();
+  }
+
   /** Re-derives the pack rect and the card, which bake options into textures. */
   rebuild() {
     this.pendingRebuild = false;
@@ -381,6 +394,8 @@ export class PackScene {
     }
     this.dirty = true;
     this.redraw();
+    // Whatever the host hangs off the pack — a hint, a slot — moved with it
+    this.emit(MESSAGES.LAYOUT, {rect: this.rect});
   }
 
   reset() {

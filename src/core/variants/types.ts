@@ -48,6 +48,12 @@ export interface VariantInstance {
   setOptions?: (options: ResolvedOptions) => void;
 
   /**
+   * The stage changed size; the variant re-derives whatever it measured against
+   * it. Optional: a variant that draws in stage-relative units omits it.
+   */
+  resize?: () => void;
+
+  /**
    * What the scene is doing right now, so the engine can throttle the frame
    * rate: `busy` while anything moves, `hint` while it only loops the hint,
    * `idle` once nothing changes. A variant that omits it is always driven at
