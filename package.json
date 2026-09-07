@@ -1,5 +1,5 @@
 {
-  "name": "@collectbase/pack-opener",
+  "name": "pack-opener-js",
   "version": "0.1.0",
   "description": "Interactive pack-opening animation rendered by PixiJS, for React Native and the web",
   "keywords": [

@@ -1,4 +1,4 @@
-# @collectbase/pack-opener
+# pack-opener-js
 
 Interactive pack-opening animation rendered by PixiJS. One scene, two hosts: the
 web and React Native (inside a WebView).
@@ -9,7 +9,7 @@ line between two points. The lid flies off, the card rides out, spins to its
 face and settles inside a halo tinted to its rarity.
 
 ```bash
-npm install @collectbase/pack-opener
+npm install pack-opener-js
 # web: also install pixi.js
 # React Native: also install react-native-webview react-native-reanimated
 ```
@@ -17,7 +17,7 @@ npm install @collectbase/pack-opener
 ## Web
 
 ```ts
-import {createPackOpener} from '@collectbase/pack-opener';
+import {createPackOpener} from 'pack-opener-js';
 
 const opener = await createPackOpener(document.querySelector('#stage'), {
   assets: {pack: {url: pack.url}, card: {url: card.url}},
@@ -36,7 +36,7 @@ The engine is imperative on purpose — any framework can call it. For React the
 is a component over it:
 
 ```tsx
-import PackOpener from '@collectbase/pack-opener/react';
+import PackOpener from 'pack-opener-js/react';
 
 <PackOpener
   options={{assets: {pack: {url: pack.url}}, theme: {glow: rarityColor}}}
@@ -51,7 +51,7 @@ mouse with no separate code path.
 ## React Native
 
 ```tsx
-import PackOpener from '@collectbase/pack-opener/native';
+import PackOpener from 'pack-opener-js/native';
 
 <PackOpener
   ref={openerRef}
@@ -206,7 +206,8 @@ src/core/        the engine: createPackOpener(element, options) → handle
   variants/      one folder per animation style; today only `slice`
     types.ts     what a variant must provide
     index.ts     the registry
-    slice/       the mechanic: declaration, presets, scene
+    slice/       the mechanic: declaration, presets, and the scene split
+                 into geometry, textures, wrapper, card and hint
 src/react/       React component for the web, over the engine
 src/native/      React Native wrapper: WebView + bridge + geometry-driven slots
   webviewEntry.js  what gets bundled: engine + bridge
@@ -237,9 +238,9 @@ running scene instead of restarting it.
 
 ## Not done yet
 
-`slice/scene.js` is still one 1100-line file in plain JS. It works and is
-covered by the variant interface, but splitting it into pack / tear / reveal /
-hint modules — and typing it — would make a second variant cheaper to write.
+The `slice` scene is plain JS, not TypeScript: it is split into modules and is
+covered by the variant interface, but typing it would make a second variant
+cheaper to write.
 
 ## License
 
