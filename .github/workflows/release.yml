@@ -1,7 +1,8 @@
 name: Release
 
 # Publishes whatever is tagged. Bump the version in package.json, tag it
-# `v<version>`, push the tag.
+# `v<version>`, push the tag. Authentication is npm trusted publishing: the
+# registry trusts this workflow by name, so there is no token to keep.
 on:
   push:
     tags: ['v*']
@@ -11,16 +12,18 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      # Required for npm provenance
+      # The OIDC token is both the credential and the provenance proof
       id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
           registry-url: https://registry.npmjs.org
+      # Trusted publishing landed in npm 11.5.1; Node 24 ships something older
+      - run: npm install --global npm@latest
       - run: pnpm install --frozen-lockfile
       - name: Refuse a tag that does not match package.json
         run: |
@@ -31,5 +34,3 @@ jobs:
             exit 1
           fi
       - run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
