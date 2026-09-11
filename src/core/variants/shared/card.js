@@ -1,8 +1,14 @@
 /**
  * The card that comes out of the pack: its artwork, the blank back it spins
  * behind, the glows around it and the beam that runs its outline. It owns those
- * nodes and every phase of the reveal — the scene hands it the pack rect, the
+ * nodes and every phase of the reveal — a scene hands it the pack rect, the
  * options and a time, and asks it to draw.
+ *
+ * Shared on purpose: how the wrapper comes apart is what makes a mechanic, but
+ * the card that comes out is the same object every time. A variant picks how it
+ * enters: slid past a cut lip and turned over (`park` + `slide` + `reveal`), or
+ * put there whole once something else has drawn its arrival (`place` +
+ * `revealInstant`).
  */
 import {Container, Graphics, Sprite, Texture} from 'pixi.js';
 import {clamp, easeInOut, easeOut, jitterAt, outlinePath, pointAt} from './geometry';
@@ -361,6 +367,7 @@ export class RevealCard {
     }
     this.node.alpha = 0;
     this.node.y = rect.top + rect.height / 2;
+    this.node.scale.set(1);
     this.bloom.alpha = 0;
     this.rim.alpha = 0;
     this.rim.scale.x = this.rim.baseScaleX;
@@ -384,6 +391,59 @@ export class RevealCard {
     this.toY = this.screen.height / 2;
     this.turn.mask = this.clipG;
     this.clip(cutY);
+  }
+
+  /**
+   * Sat where the pack was, invisible, with nothing clipping it. A mechanic
+   * that blows the wrapper apart has no lip for the card to slide past — the
+   * card is simply not there until the blast puts it there.
+   */
+  place(rect) {
+    this.fromY = rect.top + rect.height / 2;
+    this.toY = this.screen.height / 2;
+    this.node.y = this.fromY;
+    this.node.alpha = 0;
+    this.node.scale.set(1);
+    this.turn.mask = null;
+  }
+
+  /**
+   * The finished card, with no reveal played into it: face up, square, at rest
+   * where it will stay. A mechanic that reveals the card some other way — by
+   * assembling it out of particles, say — draws its own build-up and then hands
+   * over to this.
+   */
+  revealInstant() {
+    this.node.alpha = 1;
+    this.node.scale.set(1);
+    this.node.y = this.toY;
+    this.turn.scale.x = 1;
+    this.turn.mask = null;
+    this.back.tint = 0xffffff;
+    this.face.alpha = 1;
+    // Nothing of the blank back left to wipe away
+    this.drawBackMask(0);
+    this.sparks.clear();
+    this.beam.clear();
+  }
+
+  /**
+   * How present the finished card is. A mechanic that hands over to it from
+   * something else — pieces flying into place, say — brings it up underneath
+   * rather than swapping it in, so the eye never catches the change.
+   */
+  setAlpha(alpha) {
+    this.node.alpha = alpha;
+  }
+
+  /** The rarity halo on its own, for a finish that has no beam to run. */
+  setHalo(alpha) {
+    this.halo.alpha = alpha * this.o.motion.reveal.haloAlpha;
+  }
+
+  /** A short push out and back, so the card lands rather than appears. */
+  setScale(value) {
+    this.node.scale.set(value);
   }
 
   /** Dropped whole before a rebuild bakes the options into new textures. */

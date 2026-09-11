@@ -1,4 +1,5 @@
 import type {VariantModule} from './types';
+import {burst} from './burst';
 import {slice} from './slice';
 
 /**
@@ -7,6 +8,7 @@ import {slice} from './slice';
  */
 export const VARIANTS: Record<string, VariantModule> = {
   [slice.id]: slice,
+  [burst.id]: burst,
 };
 
 export const DEFAULT_VARIANT = slice.id;

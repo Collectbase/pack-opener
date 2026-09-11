@@ -1,8 +1,8 @@
 /**
- * Canvas-drawn textures the scene needs but Pixi cannot express: the blank card
+ * Canvas-drawn textures a scene needs but Pixi cannot express: the blank card
  * back, the radial bloom and the halo that hugs the card. Each is rasterised
  * once and handed over as a texture, so options baked in here only change on a
- * rebuild.
+ * rebuild. Shared by every mechanic — they all reveal the same card.
  */
 import {Texture} from 'pixi.js';
 import {withAlpha} from '../../runtime/color';

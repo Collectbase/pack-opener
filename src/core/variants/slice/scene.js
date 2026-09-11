@@ -10,10 +10,10 @@
 import {Container} from 'pixi.js';
 import {MESSAGES} from '../../config/protocol';
 import {toNumber} from '../../runtime/color';
-import {clamp, computePackRect, easeOut} from './geometry';
+import {clamp, computeSliceRect, easeOut} from './geometry';
 import {SliceHint} from './hint';
 import {PackWrapper} from './wrapper';
-import {RevealCard} from './card';
+import {RevealCard} from '../shared/card';
 
 /* ─── scene ────────────────────────────────────────────────────────────── */
 
@@ -60,7 +60,7 @@ export class PackScene {
     app.stage.addChild(this.root);
 
     const aspect = texture.width / texture.height;
-    this.rect = computePackRect(
+    this.rect = computeSliceRect(
       app.screen.width,
       app.screen.height,
       aspect,
@@ -379,7 +379,7 @@ export class PackScene {
   /** Re-derives the pack rect and the card, which bake options into textures. */
   rebuild() {
     this.pendingRebuild = false;
-    this.rect = computePackRect(
+    this.rect = computeSliceRect(
       this.app.screen.width,
       this.app.screen.height,
       this.texture.width / this.texture.height,

@@ -50,6 +50,15 @@ export function toNumber(value, fallback = 0xffffff) {
   return c ? (c.r << 16) | (c.g << 8) | c.b : fallback;
 }
 
+/** Between two of Pixi's numeric colours — a tint that changes over a phase. */
+export function mixNumbers(from, to, t) {
+  const k = Math.max(0, Math.min(1, t));
+  const r = ((from >> 16) & 255) + (((to >> 16) & 255) - ((from >> 16) & 255)) * k;
+  const g = ((from >> 8) & 255) + (((to >> 8) & 255) - ((from >> 8) & 255)) * k;
+  const b = (from & 255) + ((to & 255) - (from & 255)) * k;
+  return (Math.round(r) << 16) | (Math.round(g) << 8) | Math.round(b);
+}
+
 /** Same colour at a different opacity — how gradient stops are built. */
 export function withAlpha(value, alpha) {
   const c = parseColor(value) || {r: 255, g: 255, b: 255, a: 1};

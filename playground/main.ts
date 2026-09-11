@@ -10,9 +10,21 @@ import type {PackOpenerInstance, PackOpenerOptions} from '../src/core';
 type Control =
   | {kind: 'range'; path: string; label: string; min: number; max: number; step: number}
   | {kind: 'color'; path: string; label: string}
-  | {kind: 'text'; path: string; label: string};
+  | {kind: 'text'; path: string; label: string}
+  | {kind: 'select'; path: string; label: string; options: string[]};
 
-const GROUPS: {title: string; controls: Control[]}[] = [
+/**
+ * `variants` marks a group as belonging to one mechanic: its numbers mean
+ * nothing to the others, so showing them all at once would offer knobs that
+ * quietly do nothing.
+ */
+const GROUPS: {title: string; variants?: string[]; controls: Control[]}[] = [
+  {
+    title: 'Mechanic',
+    controls: [
+      {kind: 'select', path: 'variant', label: 'Variant', options: ['slice', 'burst']},
+    ],
+  },
   {
     title: 'Assets',
     controls: [
@@ -42,6 +54,7 @@ const GROUPS: {title: string; controls: Control[]}[] = [
   },
   {
     title: 'Interaction',
+    variants: ['slice'],
     controls: [
       {kind: 'range', path: 'interaction.activation', label: 'Activation, px', min: 0, max: 60, step: 1},
       {kind: 'range', path: 'interaction.completeFraction', label: 'Commit at, share of width', min: 0.2, max: 0.95, step: 0.01},
@@ -123,6 +136,111 @@ const GROUPS: {title: string; controls: Control[]}[] = [
   },
 ];
 
+const BURST_GROUPS: {title: string; variants?: string[]; controls: Control[]}[] = [
+  {
+    title: 'Charge',
+    variants: ['burst'],
+    controls: [
+      {kind: 'range', path: 'charge.holdMs', label: 'Full charge, ms', min: 300, max: 4000, step: 50},
+      {kind: 'range', path: 'charge.releaseMs', label: 'Bleed off, ms', min: 80, max: 1200, step: 20},
+      {kind: 'range', path: 'charge.shake', label: 'Shudder, pack heights', min: 0, max: 0.04, step: 0.001},
+      {kind: 'range', path: 'charge.shakeHz', label: 'Shudder, Hz', min: 4, max: 40, step: 1},
+      {kind: 'range', path: 'charge.squeeze', label: 'Squeeze', min: 0, max: 0.15, step: 0.005},
+      {kind: 'range', path: 'charge.heatAlpha', label: 'Heat', min: 0, max: 1, step: 0.05},
+      {kind: 'range', path: 'charge.haloAlpha', label: 'Halo', min: 0, max: 1, step: 0.05},
+      {kind: 'range', path: 'charge.bloomAlpha', label: 'Bloom', min: 0, max: 1, step: 0.05},
+      {kind: 'range', path: 'charge.arcWidth', label: 'Progress arc, px', min: 0, max: 12, step: 0.5},
+      {kind: 'range', path: 'charge.arcAlpha', label: 'Progress arc alpha', min: 0, max: 1, step: 0.05},
+      {kind: 'range', path: 'charge.sparks', label: 'Inbound sparks', min: 0, max: 60, step: 1},
+      {kind: 'range', path: 'charge.sparkReach', label: 'Spark reach', min: 0, max: 2, step: 0.05},
+      {kind: 'range', path: 'charge.sparkSize', label: 'Spark size, px', min: 0.5, max: 10, step: 0.5},
+      {kind: 'range', path: 'charge.breathe', label: 'Idle breath', min: 0, max: 0.05, step: 0.002},
+      {kind: 'range', path: 'charge.breatheMs', label: 'Idle breath, ms', min: 800, max: 6000, step: 100},
+    ],
+  },
+  {
+    title: 'Burst',
+    variants: ['burst'],
+    controls: [
+      {kind: 'range', path: 'burst.flashMs', label: 'Flash, ms', min: 60, max: 800, step: 10},
+      {kind: 'range', path: 'burst.flashScale', label: 'Flash reach', min: 1, max: 5, step: 0.1},
+      {kind: 'range', path: 'burst.beatMs', label: 'Beat before card, ms', min: 0, max: 700, step: 10},
+      {kind: 'range', path: 'burst.cols', label: 'Shards across', min: 2, max: 16, step: 1},
+      {kind: 'range', path: 'burst.rows', label: 'Shards down', min: 2, max: 26, step: 1},
+      {kind: 'range', path: 'burst.shapeJitter', label: 'Cut skew', min: 0, max: 0.45, step: 0.01},
+      {kind: 'range', path: 'burst.shapeSegments', label: 'Tears per edge', min: 1, max: 6, step: 1},
+      {kind: 'range', path: 'burst.shapeRagged', label: 'Tear depth', min: 0, max: 0.3, step: 0.01},
+      {kind: 'range', path: 'burst.scatter', label: 'Speed scatter', min: 0, max: 1, step: 0.05},
+      {kind: 'range', path: 'burst.lifeScatter', label: 'Lifetime scatter', min: 0, max: 1, step: 0.05},
+      {kind: 'range', path: 'burst.glowFrom', label: 'Shards glow from', min: 0, max: 1, step: 0.05},
+      {kind: 'range', path: 'burst.glowSwell', label: 'Shard flare', min: 0, max: 4, step: 0.1},
+      {kind: 'range', path: 'burst.shardMs', label: 'Shreds live, ms', min: 150, max: 2000, step: 10},
+      {kind: 'range', path: 'burst.spread', label: 'Throw', min: 0.2, max: 3, step: 0.05},
+      {kind: 'range', path: 'burst.lift', label: 'Lift', min: -1, max: 2, step: 0.05},
+      {kind: 'range', path: 'burst.gravity', label: 'Gravity', min: 0, max: 8, step: 0.1},
+      {kind: 'range', path: 'burst.spin', label: 'Tumble', min: 0, max: 10, step: 0.1},
+      {kind: 'range', path: 'burst.fadeFrom', label: 'Fade from', min: 0, max: 0.95, step: 0.05},
+    ],
+  },
+  {
+    title: 'Blast effects',
+    variants: ['burst'],
+    controls: [
+      {kind: 'range', path: 'burst.spikes', label: 'Light spikes', min: 0, max: 40, step: 1},
+      {kind: 'range', path: 'burst.spikeMs', label: 'Spikes, ms', min: 100, max: 1500, step: 20},
+      {kind: 'range', path: 'burst.spikeLength', label: 'Spike length', min: 0.2, max: 4, step: 0.1},
+      {kind: 'range', path: 'burst.spikeWidth', label: 'Spike width, px', min: 1, max: 24, step: 0.5},
+      {kind: 'range', path: 'burst.spikeAlpha', label: 'Spike alpha', min: 0, max: 1, step: 0.05},
+      {kind: 'range', path: 'burst.rings', label: 'Shock rings', min: 0, max: 6, step: 1},
+      {kind: 'range', path: 'burst.ringMs', label: 'Ring, ms', min: 150, max: 2000, step: 20},
+      {kind: 'range', path: 'burst.ringStagger', label: 'Ring gap', min: 0, max: 1, step: 0.02},
+      {kind: 'range', path: 'burst.ringWidth', label: 'Ring width, px', min: 1, max: 26, step: 0.5},
+      {kind: 'range', path: 'burst.ringAlpha', label: 'Ring alpha', min: 0, max: 1, step: 0.05},
+      {kind: 'range', path: 'burst.ringReach', label: 'Ring reach', min: 0.2, max: 4, step: 0.05},
+      {kind: 'range', path: 'burst.debris', label: 'Debris streaks', min: 0, max: 220, step: 5},
+      {kind: 'range', path: 'burst.debrisMs', label: 'Debris, ms', min: 200, max: 3000, step: 50},
+      {kind: 'range', path: 'burst.debrisSpread', label: 'Debris reach', min: 0.2, max: 4, step: 0.05},
+      {kind: 'range', path: 'burst.debrisSize', label: 'Debris size, px', min: 0.5, max: 10, step: 0.2},
+      {kind: 'range', path: 'burst.debrisTrail', label: 'Debris trail', min: 0, max: 4, step: 0.1},
+      {kind: 'range', path: 'burst.debrisAlpha', label: 'Debris alpha', min: 0, max: 1, step: 0.05},
+      {kind: 'range', path: 'burst.debrisGravity', label: 'Debris gravity', min: 0, max: 3, step: 0.05},
+      {kind: 'range', path: 'burst.glitter', label: 'Glitter', min: 0, max: 200, step: 5},
+      {kind: 'range', path: 'burst.glitterMs', label: 'Glitter, ms', min: 300, max: 6000, step: 100},
+      {kind: 'range', path: 'burst.glitterSize', label: 'Glitter size, px', min: 0.5, max: 8, step: 0.2},
+      {kind: 'range', path: 'burst.glitterAlpha', label: 'Glitter alpha', min: 0, max: 1, step: 0.05},
+      {kind: 'range', path: 'burst.glitterFall', label: 'Glitter drift', min: -1, max: 2, step: 0.05},
+    ],
+  },
+  {
+    title: 'Card assembly',
+    variants: ['burst'],
+    controls: [
+      {kind: 'range', path: 'burst.swarmMs', label: 'Dust cloud, ms', min: 100, max: 2000, step: 20},
+      {kind: 'range', path: 'burst.dustMotes', label: 'Dust motes', min: 0, max: 140, step: 2},
+      {kind: 'range', path: 'burst.dustSize', label: 'Mote size, px', min: 0.5, max: 10, step: 0.5},
+      {kind: 'range', path: 'burst.dustAlpha', label: 'Dust alpha', min: 0, max: 1, step: 0.05},
+      {kind: 'range', path: 'burst.dustBloomAlpha', label: 'Dust bloom', min: 0, max: 1, step: 0.05},
+      {kind: 'range', path: 'burst.assembleMs', label: 'Assemble, ms', min: 200, max: 3000, step: 20},
+      {kind: 'range', path: 'burst.assembleCols', label: 'Pieces across', min: 2, max: 16, step: 1},
+      {kind: 'range', path: 'burst.assembleRows', label: 'Pieces down', min: 2, max: 22, step: 1},
+      {kind: 'range', path: 'burst.assembleSpread', label: 'Start distance', min: 0.1, max: 2.5, step: 0.05},
+      {kind: 'range', path: 'burst.assembleStagger', label: 'Stagger', min: 0, max: 0.9, step: 0.05},
+      {kind: 'range', path: 'burst.assembleSpin', label: 'Piece tumble', min: 0, max: 8, step: 0.1},
+      {kind: 'range', path: 'burst.assembleScaleFrom', label: 'Piece starts at', min: 0.1, max: 1.5, step: 0.05},
+      {kind: 'range', path: 'burst.tintFrom', label: 'Tint drains from', min: 0, max: 1, step: 0.05},
+      {kind: 'range', path: 'burst.handoverFrom', label: 'Card comes up from', min: 0.2, max: 1, step: 0.05},
+      {kind: 'range', path: 'burst.snapMs', label: 'Landing, ms', min: 60, max: 900, step: 10},
+      {kind: 'range', path: 'burst.dissolveSpan', label: 'Pieces dissolve over', min: 0.1, max: 1, step: 0.05},
+      {kind: 'range', path: 'burst.snapOvershoot', label: 'Landing push', min: 0, max: 0.25, step: 0.01},
+      {kind: 'range', path: 'burst.shockwaveWidth', label: 'Ring width, px', min: 0, max: 20, step: 0.5},
+      {kind: 'range', path: 'burst.shockwaveAlpha', label: 'Ring alpha', min: 0, max: 1, step: 0.05},
+      {kind: 'range', path: 'burst.shockwaveReach', label: 'Ring reach', min: 0.2, max: 3, step: 0.05},
+    ],
+  },
+];
+
+GROUPS.push(...BURST_GROUPS);
+
 /** Stand-in artwork so the playground works with no assets at hand. */
 function placeholder(w: number, h: number, label: string, from: string, to: string) {
   const canvas = document.createElement('canvas');
@@ -150,8 +268,9 @@ const options: PackOpenerOptions = {
   assets: {pack: {url: DEFAULTS.pack}, card: {url: DEFAULTS.card}},
 };
 
-// Resolved once so the panel opens on the preset's own values
-const RESOLVED_PREVIEW = resolveOptions({assets: {pack: {url: ''}}});
+// The panel opens on the preset's own values, and each mechanic has its own
+// preset — so this is re-resolved whenever the variant changes
+let resolvedPreview = resolveOptions({assets: {pack: {url: ''}}});
 
 const get = (path: string): unknown =>
   path.split('.').reduce<any>((node, key) => (node == null ? node : node[key]), options);
@@ -220,8 +339,13 @@ const apply = () => {
 
 function buildPanel() {
   const host = document.querySelector<HTMLElement>('#controls')!;
+  host.replaceChildren();
+  const variant = options.variant ?? 'slice';
 
   for (const group of GROUPS) {
+    if (group.variants && !group.variants.includes(variant)) {
+      continue;
+    }
     const section = document.createElement('div');
     section.className = 'group';
     const title = document.createElement('h2');
@@ -234,7 +358,31 @@ function buildPanel() {
       name.textContent = control.label;
       label.append(name);
 
-      if (control.kind === 'range') {
+      if (control.kind === 'select') {
+        const input = document.createElement('select');
+        for (const value of control.options) {
+          const option = document.createElement('option');
+          option.value = value;
+          option.textContent = value;
+          input.append(option);
+        }
+        input.value = String(get(control.path) ?? control.options[0]);
+        input.addEventListener('change', () => {
+          set(control.path, input.value);
+          // A mechanic brings its own preset and its own knobs, so the panel
+          // is rebuilt around it rather than left offering the old ones
+          for (const key of ['interaction', 'hint', 'charge', 'burst']) {
+            delete (options as Record<string, unknown>)[key];
+          }
+          resolvedPreview = resolveOptions({
+            variant: input.value as never,
+            assets: {pack: {url: ''}},
+          });
+          buildPanel();
+          apply();
+        });
+        label.append(input);
+      } else if (control.kind === 'range') {
         const value = document.createElement('span');
         value.className = 'value';
         const input = document.createElement('input');
@@ -284,7 +432,7 @@ function buildPanel() {
 /** Sliders need a starting number even before the host has set one. */
 function resolvedDefault(path: string): number | string {
   return (
-    path.split('.').reduce<any>((node, key) => node?.[key], RESOLVED_PREVIEW) ?? 0
+    path.split('.').reduce<any>((node, key) => node?.[key], resolvedPreview) ?? 0
   );
 }
 

@@ -57,6 +57,25 @@ function applySpeed(motion: ResolvedOptions['motion']): ResolvedOptions['motion'
 }
 
 /**
+ * `speed` is one knob over the whole ceremony, so a mechanic's own durations
+ * have to answer to it too — otherwise a host that asked for a snappier open
+ * gets a snappy reveal bolted onto a charge that still takes its time.
+ */
+function scaleDurations<T extends object>(group: T, speed: number, keys: (keyof T)[]): T {
+  if (speed === 1) {
+    return group;
+  }
+  const out = {...group};
+  for (const key of keys) {
+    const value = out[key];
+    if (typeof value === 'number') {
+      out[key] = Math.max(1, Math.round(value / speed)) as T[keyof T];
+    }
+  }
+  return out;
+}
+
+/**
  * Fills a host's options in from the chosen variant's preset. This is the only
  * place defaults live: the scene and both wrappers read the resolved object, so
  * they can never disagree about what a missing field means.
@@ -79,12 +98,43 @@ export function resolveOptions(options: PackOpenerOptions): ResolvedOptions {
     },
     theme: merge(preset.theme, options.theme),
     motion: merge(preset.motion, options.motion),
-    interaction: merge(preset.interaction, options.interaction),
     layout: merge(preset.layout, options.layout),
-    hint: merge(preset.hint, options.hint),
     performance: merge(preset.performance, options.performance),
+    // Only for the mechanic that owns them: a preset without `interaction` has
+    // no cut to read, one without `charge` has no pressure to build. Filling
+    // them in regardless would hand every scene numbers for an animation it
+    // is not, and a host tuning the wrong group would see nothing happen.
+    interaction: preset.interaction
+      ? merge(preset.interaction, options.interaction)
+      : undefined,
+    hint: preset.hint ? merge(preset.hint, options.hint) : undefined,
+    charge: preset.charge ? merge(preset.charge, options.charge) : undefined,
+    burst: preset.burst ? merge(preset.burst, options.burst) : undefined,
   } as ResolvedOptions;
 
+  // Read before `applySpeed`, which bakes the factor in and resets it to 1
+  const speed = resolved.motion.speed > 0 ? resolved.motion.speed : 1;
   resolved.motion = applySpeed(resolved.motion);
+  if (resolved.charge) {
+    resolved.charge = scaleDurations(resolved.charge, speed, [
+      'holdMs',
+      'releaseMs',
+      'breatheMs',
+    ]);
+  }
+  if (resolved.burst) {
+    resolved.burst = scaleDurations(resolved.burst, speed, [
+      'flashMs',
+      'beatMs',
+      'shardMs',
+      'spikeMs',
+      'ringMs',
+      'debrisMs',
+      'glitterMs',
+      'swarmMs',
+      'assembleMs',
+      'snapMs',
+    ]);
+  }
   return resolved;
 }

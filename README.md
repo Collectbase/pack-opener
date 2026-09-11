@@ -103,14 +103,16 @@ ceremony out of the same mechanic:
 
 | Group | What it covers |
 | --- | --- |
-| `variant` | Which animation mechanic runs. Today only `slice`. |
-| `preset` | Named set of numbers for that mechanic. Today only `classic`. |
+| `variant` | Which animation mechanic runs: `slice` or `burst`. |
+| `preset` | Named set of numbers for that mechanic: `classic` for `slice`, `charged` for `burst`. |
 | `assets` | Pack and card artwork, and how long to wait for the card. |
 | `theme` | Background, rarity glow, rim, bloom, beam, sparks, hint, the four card-back colours, corner radius. |
 | `motion` | Every duration, plus `speed` as one multiplier over all of them. How the lid is thrown, tumbled and faded; how far the emptied wrapper sinks; how the card turns, how thin it goes edge-on, how it is shaded; the beam's width, glow, tip and tail; the sparks' size, scatter and opacity; the opacity of all three glows. |
-| `interaction` | What counts as a swipe: activation distance, commit fraction, trail sampling, cut gap and raggedness, the band it may travel through, how the blade runs out, how often progress is reported, and the arc a programmatic cut follows. |
+| `interaction` | **`slice` only.** What counts as a swipe: activation distance, commit fraction, trail sampling, cut gap and raggedness, the band it may travel through, how the blade runs out, how often progress is reported, and the arc a programmatic cut follows. |
 | `layout` | Where the pack sits and how much of the stage it takes; the card's size and widest allowed ratio; the size and softness of the three glows. |
-| `hint` | The comet that mimes the swipe: position, sweep, head, tail, tail opacity and falloff, cadence. |
+| `hint` | **`slice` only.** The comet that mimes the swipe: position, sweep, head, tail, tail opacity and falloff, cadence. |
+| `charge` | **`burst` only.** How long a full charge takes and how fast it bleeds away; the shudder and squeeze of a pressured pack; the heat, halo, bloom and progress arc it lights up with; the sparks pulled in from outside; the breath of an untouched pack. |
+| `burst` | **`burst` only.** The blast: flash, the grid the foil is torn into and how uneven that cut is, when the shards start burning as sparks and when they fade, plus the spikes, shock rings, debris streaks and glitter thrown off with them. Then the beat of quiet, and the card's arrival: the dust cloud, the grid the artwork is cut into, how far out its pieces start and how they are staggered, when the finished card comes up underneath them, the landing push and the ring that goes out with it. |
 | `performance` | Frame caps for moving, idling and sleeping; ceiling on the device pixel ratio; multisampling. |
 
 What is deliberately *not* in here: easing curves, and the order of the phases
@@ -119,11 +121,49 @@ what a variant is for, and adding one does not touch this shape.
 
 Two levels on purpose. A **variant** is a mechanic with its own scene module; a
 **preset** is a set of numbers for one variant. New styles arrive as variants,
-new looks as presets, and neither changes the shape above.
+new looks as presets, and neither changes the shape above. Groups marked above
+as belonging to one mechanic are only filled in when that mechanic runs, so a
+host cannot spend an afternoon tuning knobs the running scene never reads.
 
 `classic` is the animation as it shipped in the app this was built for — every
 number in it was measured against the reference recording, so it is the baseline
 other presets are judged against.
+
+## The two mechanics
+
+**`slice`** — the seal is cut with a finger. The cut follows the trail, the lid
+tears away, the emptied wrapper sinks and the card slides out past the lip. It
+asks for a small piece of skill and rewards a confident swipe.
+
+**`burst`** — the pack is held under a finger and the pressure builds: it
+shudders, squeezes, heats up from the inside and a line closes around it showing
+how far the charge has come. At full charge it goes off: a flash, spikes of
+light, shock rings, and the wrapper torn into a few hundred shards that burn out
+as they fly, with debris streaking out and glitter left hanging in the air. Then
+a beat of quiet — held, not empty, the glitter is still drifting. The card does
+not slide in: dust gathers where it will be, resolves into pieces of the
+artwork, and they fly into place until the card is whole, landing with a ring.
+It asks for nerve rather than aim, and the wait is the point.
+
+Both halves are cut by the same knife. The artwork — wrapper first, card
+after — is re-cut into a mosaic: one grid of nodes pushed off true, every edge
+torn along points both of its cells share. Pieces that interlock are what let
+the wrapper look whole until it bursts and the card arrive as a card rather
+than as a grid with gaps in it.
+
+The two mechanics share no part of their finish, on purpose: a second animation
+that ends in the same spinning card back is not a second animation. `slice`
+turns the card over and runs a beam around it; `burst` tears the wrapper into
+pieces and then builds the card out of pieces. What they do share is the card
+object and the events, so a host swaps one for the other with a single option
+and changes nothing else.
+
+Three numbers in `charged` carry most of its feel: `charge.holdMs`, the length
+of the anticipation; `burst.beatMs`, the quiet between the blast and the dust —
+borrowed from slot design, where the gap before the last reel stops is what
+makes a result feel considered rather than rushed; and
+`burst.assembleStagger`, which decides whether the card fills in from the
+middle outwards or arrives as one flat sheet.
 
 ## Performance
 
@@ -169,6 +209,7 @@ A **preset** is a named set of numbers for one variant. Hosts pick both:
 
 ```ts
 createPackOpener(el, {variant: 'slice', preset: 'classic', assets: {…}});
+createPackOpener(el, {variant: 'burst', preset: 'charged', assets: {…}});
 ```
 
 A variant declares itself and nothing else in the package changes — not the
@@ -197,17 +238,25 @@ Register it in `src/core/variants/index.ts` and add its name to `VariantName` in
 `src/core/config/types.ts`. Defaults resolve through the variant, so a new
 mechanic never inherits numbers that were tuned for a different one.
 
+What comes *out* of the pack is not part of a mechanic: the card, its glows and
+the beam around it live in `variants/shared`, and a variant only picks how the
+card enters — `place` + `emerge` for a blast, `park` + `slide` for a cut. Option
+groups that belong to one mechanic are declared optional in `ResolvedOptions`
+and resolved only when its preset carries them.
+
 ## Working on the package
 
 ```
 src/core/        the engine: createPackOpener(element, options) → handle
   config/        the public option surface: types, resolve, bridge protocol
   runtime/       shared helpers (colour parsing)
-  variants/      one folder per animation style; today only `slice`
+  variants/      one folder per animation style
     types.ts     what a variant must provide
     index.ts     the registry
-    slice/       the mechanic: declaration, presets, and the scene split
-                 into geometry, textures, wrapper, card and hint
+    shared/      what every mechanic reveals: geometry, textures, the card
+    slice/       cut the seal: declaration, presets, scene, wrapper, hint
+    burst/       charge and detonate: declaration, presets, scene, pack,
+                 shreds, and the card assembled out of particles
 src/react/       React component for the web, over the engine
 src/native/      React Native wrapper: WebView + bridge + geometry-driven slots
   webviewEntry.js  what gets bundled: engine + bridge

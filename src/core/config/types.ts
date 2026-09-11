@@ -6,9 +6,9 @@
  * module), `preset` picks a set of numbers for that mechanic. New styles arrive
  * as new variants, new looks as new presets — neither changes this shape.
  */
-export type VariantName = 'slice';
+export type VariantName = 'slice' | 'burst';
 
-export type PresetName = 'classic';
+export type PresetName = 'classic' | 'charged';
 
 /** Colour in any CSS form the scene can parse: `#rgb`, `#rrggbb`, `rgba(...)`. */
 export type Color = string;
@@ -249,6 +249,167 @@ export interface PerformanceOptions {
   antialias?: boolean;
 }
 
+/**
+ * `burst` only: the pack is charged under a finger instead of being cut. The
+ * charge is a clock, not a distance — the finger stays put and the pressure
+ * builds, which is the whole difference in feel from `slice`.
+ */
+export interface ChargeOptions {
+  /** How long a finger has to stay down for a full charge. */
+  holdMs?: number;
+  /** The charge bleeding away after a finger leaves early. */
+  releaseMs?: number;
+  /** Shudder at full charge, in pack heights, and how fast it shakes. */
+  shake?: number;
+  shakeHz?: number;
+  /** How much the pack squeezes as the pressure builds, in pack widths. */
+  squeeze?: number;
+  /**
+   * The three lights of a charged pack: heat added over the artwork itself, a
+   * halo around its silhouette, and the bloom swelling behind it.
+   */
+  heatAlpha?: number;
+  haloAlpha?: number;
+  bloomAlpha?: number;
+  /** The line that closes around the pack as the charge fills. */
+  arcWidth?: number;
+  arcAlpha?: number;
+  /** Sparks pulled in from outside: how many, and how far out they start. */
+  sparks?: number;
+  sparkReach?: number;
+  sparkSize?: number;
+  /** How often the charge is reported back, as a share of it. */
+  tickStep?: number;
+  /** Breathing of an untouched pack: depth in pack widths, and its period. */
+  breathe?: number;
+  breatheMs?: number;
+}
+
+/** `burst` only: the wrapper coming apart and the card thrown out of it. */
+export interface BurstOptions {
+  /** The flash that covers the moment the wrapper stops existing. */
+  flashMs?: number;
+  /** How far the flash reaches past the pack, in pack widths. */
+  flashScale?: number;
+  /**
+   * The beat between the flash and the card climbing out. Borrowed from slot
+   * design, where the pause before the last reel stops is what makes the
+   * result feel considered rather than rushed.
+   */
+  beatMs?: number;
+  /**
+   * Shards of foil. The artwork is re-cut into a mosaic — neighbours share the
+   * points along the edge between them — so `cols` × `rows` decides how small
+   * the pieces are and the `shape*` numbers decide how uneven they look. They
+   * never decide whether the pieces meet: a grid of rectangles is what makes a
+   * burst read as a photo cut with scissors, but pieces that do not interlock
+   * leave the assembled card full of holes.
+   */
+  cols?: number;
+  rows?: number;
+  /** How far a grid node is pushed off true, in cells. */
+  shapeJitter?: number;
+  /** Segments an edge is torn into, and how deep the tear goes, in cells. */
+  shapeSegments?: number;
+  shapeRagged?: number;
+  /** Per-shard speed and lifetime variation. 0 makes the grid legible again. */
+  scatter?: number;
+  lifeScatter?: number;
+  shardMs?: number;
+  /** How far they are thrown, in pack widths and heights. */
+  spread?: number;
+  lift?: number;
+  /** How hard they fall, in pack heights per second squared, and how they spin. */
+  gravity?: number;
+  spin?: number;
+  /** Share of a shard's life it spends fading out. */
+  fadeFrom?: number;
+  /** Share of its flight after which a shard burns as a spark, not as foil. */
+  glowFrom?: number;
+  /** How much a burning shard swells before it dies. */
+  glowSwell?: number;
+
+  /**
+   * What the blast throws off besides the wrapper. All of it runs on one clock
+   * from the moment the pack goes off and deliberately outlasts the beat that
+   * follows, so the blast and the card's arrival read as one event.
+   */
+  /** Spikes of light out of the centre: how many, how long they live. */
+  spikes?: number;
+  spikeMs?: number;
+  /** Their length in card half-diagonals, their thickness and opacity. */
+  spikeLength?: number;
+  spikeWidth?: number;
+  spikeAlpha?: number;
+  /** Expanding rings: how many waves, how long each takes, the gap between. */
+  rings?: number;
+  ringMs?: number;
+  ringStagger?: number;
+  ringWidth?: number;
+  ringAlpha?: number;
+  /** How far a ring travels, in half-diagonals. */
+  ringReach?: number;
+  /** Debris thrown out as streaks: count, lifetime, reach, size, trail. */
+  debris?: number;
+  debrisMs?: number;
+  debrisSpread?: number;
+  debrisSize?: number;
+  debrisTrail?: number;
+  debrisAlpha?: number;
+  /** How hard the debris falls, in pack heights over its lifetime. */
+  debrisGravity?: number;
+  /** Glitter left hanging in the air: count, lifetime, size, opacity, drift. */
+  glitter?: number;
+  glitterMs?: number;
+  glitterSize?: number;
+  glitterAlpha?: number;
+  glitterFall?: number;
+
+  /**
+   * How the card arrives: not slid out of a wrapper but assembled. First a
+   * cloud of dust gathers where the card will be — that is also where waiting
+   * for late artwork hides — then it resolves into pieces of the artwork and
+   * they fly into place.
+   */
+  swarmMs?: number;
+  /** The waiting cloud: how many motes, how big, how bright, and its bloom. */
+  dustMotes?: number;
+  dustSize?: number;
+  dustAlpha?: number;
+  dustBloomAlpha?: number;
+  /** The assembly: how long it takes and the grid the card is cut into. */
+  assembleMs?: number;
+  assembleCols?: number;
+  assembleRows?: number;
+  /** How far out the pieces start, in card heights. */
+  assembleSpread?: number;
+  /**
+   * Share of the assembly spent staggering the pieces by distance from the
+   * middle. 0 lands them all at once, which reads as one flat sheet.
+   */
+  assembleStagger?: number;
+  /** How much a piece is turned and shrunk while it is still in flight. */
+  assembleSpin?: number;
+  assembleScaleFrom?: number;
+  /**
+   * Where a piece's rarity tint starts draining, as a share of its approach,
+   * and where the finished card starts coming up underneath the assembly, as a
+   * share of `assembleMs`. The hand-over is gradual on purpose: swapping the
+   * pieces for the card in one frame is the one thing the eye always catches.
+   */
+  tintFrom?: number;
+  handoverFrom?: number;
+  /** The landing: a push out and back, and the ring that goes out with it. */
+  snapMs?: number;
+  snapOvershoot?: number;
+  /** Share of the snap over which the pieces dissolve off the finished card. */
+  dissolveSpan?: number;
+  shockwaveWidth?: number;
+  shockwaveAlpha?: number;
+  /** How far the ring travels past the card, in card half-diagonals. */
+  shockwaveReach?: number;
+}
+
 export interface PackOpenerOptions {
   variant?: VariantName;
   preset?: PresetName;
@@ -259,6 +420,8 @@ export interface PackOpenerOptions {
   layout?: LayoutOptions;
   hint?: HintOptions;
   performance?: PerformanceOptions;
+  charge?: ChargeOptions;
+  burst?: BurstOptions;
 }
 
 /** Every field filled in — what the scene actually runs on. */
@@ -268,4 +431,20 @@ export type Resolved<T> = {
     : NonNullable<T[K]>;
 };
 
-export type ResolvedOptions = Resolved<Required<PackOpenerOptions>>;
+/**
+ * What a scene runs on. The groups every mechanic shares are always filled in;
+ * the ones that belong to a single mechanic are there only when that mechanic
+ * is the one running, because a preset has no business carrying numbers for an
+ * animation it is not.
+ */
+/** Groups that belong to one mechanic rather than to every scene. */
+type VariantGroups = 'interaction' | 'hint' | 'charge' | 'burst';
+
+export type ResolvedOptions = Resolved<
+  Required<Omit<PackOpenerOptions, VariantGroups>>
+> & {
+  interaction?: Resolved<InteractionOptions>;
+  hint?: Resolved<HintOptions>;
+  charge?: Resolved<ChargeOptions>;
+  burst?: Resolved<BurstOptions>;
+};

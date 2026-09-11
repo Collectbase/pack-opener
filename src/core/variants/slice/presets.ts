@@ -1,4 +1,4 @@
-import type {PresetName, ResolvedOptions} from '../../config/types';
+import type {ResolvedOptions} from '../../config/types';
 
 /**
  * `classic` is the animation as it shipped in the app this was built for —
@@ -9,7 +9,10 @@ import type {PresetName, ResolvedOptions} from '../../config/types';
  * that reads them, so a new mechanic brings its own set rather than extending a
  * shared table.
  */
-export const PRESETS: Record<PresetName, Omit<ResolvedOptions, 'variant' | 'preset' | 'assets'>> = {
+export const PRESETS: Record<
+  'classic',
+  Omit<ResolvedOptions, 'variant' | 'preset' | 'assets' | 'charge' | 'burst'>
+> = {
   classic: {
     theme: {
       background: 'transparent',
