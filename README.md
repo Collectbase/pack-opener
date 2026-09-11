@@ -142,8 +142,10 @@ light, shock rings, and the wrapper torn into a few hundred shards that burn out
 as they fly, with debris streaking out and glitter left hanging in the air. Then
 a beat of quiet — held, not empty, the glitter is still drifting. The card does
 not slide in: dust gathers where it will be, resolves into pieces of the
-artwork, and they fly into place until the card is whole, landing with a ring.
-It asks for nerve rather than aim, and the wait is the point.
+artwork, and they fly into place until the card is whole. What marks the
+landing is the card itself — its outline swells and a highlight runs across the
+artwork — rather than anything thrown at it. It asks for nerve rather than aim,
+and the wait is the point.
 
 Both halves are cut by the same knife. The artwork — wrapper first, card
 after — is re-cut into a mosaic: one grid of nodes pushed off true, every edge

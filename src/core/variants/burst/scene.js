@@ -18,12 +18,7 @@ import {MESSAGES} from '../../config/protocol';
 import {toNumber} from '../../runtime/color';
 import {RevealCard} from '../shared/card';
 import {clamp, computePackRect} from '../shared/geometry';
-import {
-  LightRays,
-  ScreenFlash,
-  ShockFront,
-  Starflare,
-} from '../shared/blast';
+import {ScreenFlash} from '../shared/blast';
 import {CardAssembly} from './assemble';
 import {BlastEffects} from './effects';
 import {ChargingPack} from './pack';
@@ -37,28 +32,6 @@ const sceneColors = theme => ({
   beam: toNumber(theme.beam),
   spark: toNumber(theme.spark),
 });
-
-/**
- * The blast's light, retimed for the landing: one wave over the snap instead of
- * three over the blast, and pulled in tighter around the card. Built once per
- * options change rather than per frame.
- */
-/** The fan comes up over the first half of the assembly, then holds. */
-const raysPresence = t => clamp(t / 0.5, 0, 1);
-
-function landingOptions(burst) {
-  return {
-    ringMs: burst.snapMs,
-    ringStagger: 0,
-    ringReach: burst.snapReach,
-    ringSquash: burst.ringSquash,
-    ringAlpha: burst.snapAlpha,
-    ringCoreAlpha: burst.snapCoreAlpha,
-    flareReach: burst.snapFlareReach,
-    flareAlpha: burst.snapFlareAlpha,
-    flareSpin: -burst.flareSpin,
-  };
-}
 
 export class BurstScene {
   constructor(app, texture, options, emit) {
@@ -80,8 +53,7 @@ export class BurstScene {
     this.ignoring = false;
     this.artWaitStart = 0;
     this.handed = false;
-    this.landed = false;
-    this.snapFlashAt = null;
+    this.sheenAt = null;
 
     this.root = new Container();
     this.root.alpha = 0;
@@ -101,17 +73,6 @@ export class BurstScene {
 
     this.effects = new BlastEffects(this.root, this.o.burst);
     this.effects.layout(this.rect);
-
-    // Behind the card on purpose: a front that passes over the artwork is a
-    // decal, one that passes behind it is light in the room
-    this.landing = new ShockFront(this.root, 1, {
-      thickness: this.o.burst.ringThickness,
-      ragged: this.o.burst.ringRagged * 0.6,
-    });
-    this.landingFlare = new Starflare(this.root, this.o.burst.flareSpread);
-    this.rays = new LightRays(this.root, this.o.burst.rays);
-
-    this.landingOpts = landingOptions(this.o.burst);
 
     this.card = new RevealCard(this.root, app.screen, this.o, this.colors);
     this.assembly = new CardAssembly(this.root, this.o.theme);
@@ -240,7 +201,6 @@ export class BurstScene {
     }
     this.card.place(this.rect);
     this.cardRect = this.card.bounds();
-    this.layoutLanding();
   }
 
   setCardTexture(texture) {
@@ -312,17 +272,6 @@ export class BurstScene {
     );
   }
 
-  /** The landing light is measured against the card, not the pack. */
-  layoutLanding() {
-    const center = {
-      x: this.cardRect.left + this.cardRect.width / 2,
-      y: this.cardRect.top + this.cardRect.height / 2,
-    };
-    const size = Math.hypot(this.cardRect.width, this.cardRect.height) / 2;
-    this.landing.layout(center, size);
-    this.landingFlare.layout(center, size);
-  }
-
   /**
    * The pieces flying in, the light that marks them landing, and the finished
    * card. `snap` is where the assembly hands over to the card itself: one push
@@ -392,7 +341,6 @@ export class BurstScene {
         this.assembly.swarm(t, this.clock, this.o.burst, this.colors);
       } else if (anim.kind === 'assemble') {
         this.assembly.play(t, this.o.burst, this.colors);
-        this.rays.play(raysPresence(t), this.clock, this.o.burst, this.colors);
         // The halo comes up with the card rather than after it
         this.card.setHalo(t);
         const from = this.o.burst.handoverFrom;
@@ -400,27 +348,16 @@ export class BurstScene {
           this.handOver(clamp((t - from) / (1 - from), 0, 1));
         }
       } else if (anim.kind === 'snap') {
-        // The landing reuses the blast's own language — one front out of the
-        // card and a flare struck behind it — so the two moments rhyme
-        const struck = t * this.o.burst.snapMs;
-        if (!this.landed) {
-          this.landed = true;
-          this.strike(this.o.burst.snapKickMs, this.o.burst.snapKickAmp);
-          this.snapFlashAt = this.clock;
-        }
-        this.rays.play(1, this.clock, this.o.burst, this.colors);
-        this.landing.play(struck, this.landingOpts, this.colors);
-        this.landingFlare.play(
-          struck,
-          this.o.burst.snapMs,
-          this.landingOpts,
-          this.colors,
-        );
-        // Overshoot on the way in, settled by the end
+        // Nothing is thrown at the card here: whatever happens, happens to the
+        // card itself. Its own outline flares, and a highlight runs across the
+        // artwork — loud, but made of the card rather than aimed at it
         const push = Math.sin(Math.PI * t) * this.o.burst.snapOvershoot;
         this.handOver(1);
         this.card.setScale(1 + push);
-        this.card.setHalo(1);
+        this.card.pulse(Math.sin(Math.PI * Math.pow(t, 0.7)));
+        if (this.sheenAt === null) {
+          this.sheenAt = this.clock;
+        }
         // The pieces go with the same push, then dissolve off the artwork
         this.assembly.settle(
           1 - clamp(t / this.o.burst.dissolveSpan, 0, 1),
@@ -428,10 +365,7 @@ export class BurstScene {
         );
       } else if (anim.kind === 'settle') {
         this.card.setScale(1);
-        this.card.setHalo(1);
-        this.rays.play(1, this.clock, this.o.burst, this.colors);
-        this.landing.clear();
-        this.landingFlare.clear();
+        this.card.pulse(0);
       }
 
       if (t >= 1) {
@@ -441,12 +375,9 @@ export class BurstScene {
     }
 
     this.updateKick(deltaMS);
-    if (this.snapFlashAt !== null) {
-      this.screenFlash.play(
-        this.clock - this.snapFlashAt,
-        this.o.burst.snapFlashMs,
-        this.o.burst.snapFlashAlpha,
-        this.colors,
+    if (this.sheenAt !== null) {
+      this.card.sweepSheen(
+        (this.clock - this.sheenAt) / this.o.motion.reveal.sheenMs,
       );
     }
 
@@ -471,15 +402,15 @@ export class BurstScene {
     const elapsed = this.blastClock;
 
     this.flash.play(elapsed / burst.flashMs);
-    // The blast's own white-out, until the landing takes the flash over
-    if (this.snapFlashAt === null) {
-      this.screenFlash.play(
-        elapsed,
-        burst.screenFlashMs,
-        burst.screenFlashAlpha,
-        this.colors,
-      );
-    }
+    // Only the blast whites the stage out. The landing is the opposite moment
+    // — everything closing on the card — and a flash over the artwork there
+    // reads as a second explosion rather than as an arrival
+    this.screenFlash.play(
+      elapsed,
+      burst.screenFlashMs,
+      burst.screenFlashAlpha,
+      this.colors,
+    );
     if (elapsed <= burst.shardMs) {
       this.shards.play(clamp(elapsed / burst.shardMs, 0, 1), burst, this.colors);
     } else if (this.shards.node.visible) {
@@ -543,7 +474,6 @@ export class BurstScene {
     this.o = next;
     this.colors = sceneColors(next.theme);
     this.card.setOptions(next, this.colors);
-    this.landingOpts = landingOptions(next.burst);
 
     const baked =
       JSON.stringify(before.theme) !== JSON.stringify(next.theme) ||
@@ -555,7 +485,6 @@ export class BurstScene {
       before.burst.ringThickness !== next.burst.ringThickness ||
       before.burst.ringRagged !== next.burst.ringRagged ||
       before.burst.flareSpread !== next.burst.flareSpread ||
-      before.burst.rays !== next.burst.rays ||
       before.burst.shapeJitter !== next.burst.shapeJitter ||
       before.burst.shapeSegments !== next.burst.shapeSegments ||
       before.burst.shapeRagged !== next.burst.shapeRagged ||
@@ -601,19 +530,12 @@ export class BurstScene {
     this.flash.layout(this.rect, this.o.burst);
     this.effects.setShape(this.o.burst);
     this.effects.layout(this.rect);
-    this.landing.setShape(1, {
-      thickness: this.o.burst.ringThickness,
-      ragged: this.o.burst.ringRagged * 0.6,
-    });
-    this.landingFlare.setSpread(this.o.burst.flareSpread);
-    this.rays.setCount(this.o.burst.rays);
     this.screenFlash.layout(this.app.screen);
     if (this.card.built) {
       this.card.destroy();
       this.card.build(this.rect);
       this.card.rewind(this.rect);
       this.cardRect = this.card.bounds();
-      this.layoutLanding();
       this.buildAssembly();
     }
 
@@ -634,8 +556,7 @@ export class BurstScene {
     this.ignoring = false;
     this.artWaitStart = 0;
     this.handed = false;
-    this.landed = false;
-    this.snapFlashAt = null;
+    this.sheenAt = null;
 
     this.blastClock = null;
     this.pack.reset();
@@ -643,9 +564,6 @@ export class BurstScene {
     this.flash.reset();
     this.effects.clear();
     this.assembly.reset();
-    this.landing.clear();
-    this.landingFlare.clear();
-    this.rays.clear();
     this.screenFlash.clear();
     this.kick = 0;
     this.root.position.set(0, 0);

@@ -11,6 +11,10 @@ that burn out as they fly. The card is not slid out and turned over as in
 pieces of the artwork and they fly into place, landing with a ring. Same events,
 one option to switch.
 
+The card's arrival belongs to the card: its outline flares and a highlight runs
+across the artwork, and nothing is thrown at it — a ring or a flash two seconds
+after the blast reads as a second explosion rather than as a reveal.
+
 Artwork is cut into a mosaic rather than into separate outlines — neighbouring
 pieces share the points along the edge between them — so the wrapper reads as
 whole until it bursts and the card assembles into artwork instead of into a grid

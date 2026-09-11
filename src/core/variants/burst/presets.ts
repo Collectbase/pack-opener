@@ -87,6 +87,16 @@ export const PRESETS: Record<
         sparkSpreadX: 6,
         sparkSpreadY: 5,
         artWaitSpinMs: 600,
+        // The card's own moment: its outline swells and a highlight runs
+        // across the artwork. Both belong to the card, so a loud landing
+        // still reads as the card arriving rather than as another blast
+        pulseRim: 0.9,
+        pulseHalo: 0.7,
+        pulseSpread: 0.07,
+        sheenMs: 850,
+        sheenAlpha: 0.95,
+        sheenWidth: 0.6,
+        sheenTilt: 0.35,
       },
     },
     charge: {
@@ -166,13 +176,6 @@ export const PRESETS: Record<
       // one that carries the blast past the glass
       screenFlashMs: 220,
       screenFlashAlpha: 0.85,
-      // The fan of light the card arrives in: one turning sprite behind it
-      rays: 18,
-      raysAlpha: 0.5,
-      raysReach: 2.6,
-      raysSpin: 0.16,
-      raysBreathe: 0.06,
-      raysBreatheMs: 620,
       debris: 90,
       debrisMs: 1400,
       debrisSpread: 1.5,
@@ -208,19 +211,10 @@ export const PRESETS: Record<
       snapMs: 420,
       // Share of the snap over which the pieces dissolve off the card
       dissolveSpan: 0.55,
-      snapOvershoot: 0.06,
-      // The same light as the blast, struck behind the card as it lands — one
-      // wave and one flare, tighter and shorter than the blast's
-      snapReach: 1.25,
-      snapAlpha: 0.6,
-      snapCoreAlpha: 0.7,
-      snapFlareReach: 1.35,
-      snapFlareAlpha: 0.75,
-      // A shorter, softer version of the blast's hit when the card lands
-      snapKickMs: 260,
-      snapKickAmp: 0.018,
-      snapFlashMs: 180,
-      snapFlashAlpha: 0.4,
+      snapOvershoot: 0.1,
+      // Nothing is thrown at the card when it lands: the blast had its moment,
+      // and a second one two seconds later fights the artwork instead of
+      // presenting it
     },
     layout: {
       pack: {

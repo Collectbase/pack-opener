@@ -77,6 +77,15 @@ export const PRESETS: Record<
         sparkSpreadX: 6,
         sparkSpreadY: 5,
         artWaitSpinMs: 600,
+        // The card is shared, so it carries these even where the mechanic
+        // never runs them
+        pulseRim: 0.9,
+        pulseHalo: 0.7,
+        pulseSpread: 0.07,
+        sheenMs: 620,
+        sheenAlpha: 0.85,
+        sheenWidth: 0.55,
+        sheenTilt: 0.35,
       },
     },
     interaction: {

@@ -172,36 +172,20 @@ export function makeStarburstTexture(size, spread) {
 }
 
 /**
- * The fan of rays a reveal is lit from behind with. Wedges of uneven width and
- * length around the middle, brightest at the centre and gone by the rim — one
- * sprite turning slowly behind the card does what a hundred particles cannot,
- * and costs one draw call.
+ * The band of light that runs across a card the way a window runs across
+ * glossy stock. Drawn along the sprite's width and soft at both ends, so what
+ * crosses the artwork is a highlight rather than a bar.
  */
-export function makeRaysTexture(size, count) {
-  const {canvas, ctx} = makeCanvas(size, size);
-  const c = size / 2;
-
-  for (let i = 0; i < count; i++) {
-    const angle = (i / count) * Math.PI * 2;
-    // Alternating long and short, and never quite even, so the fan turns
-    // rather than pulses
-    const long = i % 2 === 0 ? 1 : 0.62;
-    const length = c * long * (0.82 + 0.18 * Math.sin(i * 2.7));
-    const spread = (Math.PI / count) * (i % 3 === 0 ? 0.85 : 0.5);
-
-    const gradient = ctx.createRadialGradient(c, c, c * 0.06, c, c, length);
-    gradient.addColorStop(0, 'rgba(255,255,255,0.85)');
-    gradient.addColorStop(0.45, 'rgba(255,255,255,0.32)');
-    gradient.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = gradient;
-
-    ctx.beginPath();
-    ctx.moveTo(c, c);
-    ctx.arc(c, c, length, angle - spread, angle + spread);
-    ctx.closePath();
-    ctx.fill();
-  }
-
+export function makeSheenTexture(w, h) {
+  const {canvas, ctx} = makeCanvas(w, h);
+  const gradient = ctx.createLinearGradient(0, 0, w, 0);
+  gradient.addColorStop(0, 'rgba(255,255,255,0)');
+  gradient.addColorStop(0.38, 'rgba(255,255,255,0.35)');
+  gradient.addColorStop(0.5, 'rgba(255,255,255,0.95)');
+  gradient.addColorStop(0.62, 'rgba(255,255,255,0.35)');
+  gradient.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, w, h);
   return Texture.from(canvas);
 }
 

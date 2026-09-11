@@ -126,6 +126,18 @@ export interface MotionOptions {
     sparkSpreadY?: number;
     /** One turn of the card while it waits for late artwork. */
     artWaitSpinMs?: number;
+  /**
+   * The card's own flourish: how far its rim and halo swell on a pulse, how
+   * much wider the glows grow with it, and the highlight that runs across the
+   * artwork — its length, brightness, width in card widths and its tilt.
+   */
+  pulseRim?: number;
+  pulseHalo?: number;
+  pulseSpread?: number;
+  sheenMs?: number;
+  sheenAlpha?: number;
+  sheenWidth?: number;
+  sheenTilt?: number;
   };
 }
 
@@ -379,17 +391,7 @@ export interface BurstOptions {
   /** The white-out over the whole stage, and how bright it goes. */
   screenFlashMs?: number;
   screenFlashAlpha?: number;
-  /**
-   * The fan of light the card arrives in: how many rays, how bright, how far
-   * they reach in card half-diagonals, how fast the fan turns, and the slow
-   * breath that keeps it from reading as wallpaper.
-   */
-  rays?: number;
-  raysAlpha?: number;
-  raysReach?: number;
-  raysSpin?: number;
-  raysBreathe?: number;
-  raysBreatheMs?: number;
+
   /** Debris thrown out as streaks: count, lifetime, reach, size, trail. */
   debris?: number;
   debrisMs?: number;
@@ -445,21 +447,7 @@ export interface BurstOptions {
   snapOvershoot?: number;
   /** Share of the snap over which the pieces dissolve off the finished card. */
   dissolveSpan?: number;
-  /**
-   * The landing's own front and flare — the blast's light retimed. Reach is in
-   * card half-diagonals; the shape of both comes from the `ring*` and `flare*`
-   * numbers above, so the two moments cannot drift apart.
-   */
-  snapReach?: number;
-  snapAlpha?: number;
-  snapCoreAlpha?: number;
-  snapFlareReach?: number;
-  snapFlareAlpha?: number;
-  /** The landing's own hit and white-out — shorter and softer than the blast's. */
-  snapKickMs?: number;
-  snapKickAmp?: number;
-  snapFlashMs?: number;
-  snapFlashAlpha?: number;
+
 }
 
 export interface PackOpenerOptions {

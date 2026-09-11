@@ -9,11 +9,7 @@
  */
 import {Container, Sprite, Texture} from 'pixi.js';
 import {clamp, easeOut} from './geometry';
-import {
-  makeRaysTexture,
-  makeShockwaveTexture,
-  makeStarburstTexture,
-} from './textures';
+import {makeShockwaveTexture, makeStarburstTexture} from './textures';
 
 const TEXTURE_SIZE = 512;
 
@@ -96,23 +92,35 @@ export class ShockFront {
       }
 
       const eased = easeOut(t);
-      const radius = this.size * (0.2 + options.ringReach * eased);
+      // Outward for a blast, inward for something gathering: the same front
+      // run backwards closes on what it is lighting instead of leaving it
+      const radius = options.ringInward
+        ? this.size * (options.ringReach - (options.ringReach - 0.62) * eased)
+        : this.size * (0.2 + options.ringReach * eased);
       // Flattened a little, so the front reads as travelling across a floor
       // rather than as a hoop drawn on the glass
       const squash = 1 - options.ringSquash;
       const scale = (radius * 2) / TEXTURE_SIZE;
 
+      // A front leaving is brightest at the start and a front arriving is
+      // brightest as it lands, so the curve turns over with the direction
+      const presence = options.ringInward
+        ? Math.pow(t, 0.7)
+        : Math.pow(1 - t, 1.4);
+
       wave.glow.visible = true;
       wave.glow.scale.set(scale, scale * squash);
       wave.glow.tint = i % 2 === 0 ? colors.glow : colors.beam;
-      wave.glow.alpha = options.ringAlpha * Math.pow(1 - t, 1.4);
+      wave.glow.alpha = options.ringAlpha * presence;
 
       // The hot edge is thinner, brighter and gone sooner than the colour
       // behind it
       wave.core.visible = true;
       wave.core.scale.set(scale * 1.01, scale * squash * 1.01);
       wave.core.tint = colors.rim;
-      wave.core.alpha = options.ringCoreAlpha * Math.pow(1 - t, 2.6);
+      wave.core.alpha =
+        options.ringCoreAlpha *
+        (options.ringInward ? Math.pow(t, 1.6) : Math.pow(1 - t, 2.6));
     });
   }
 
@@ -173,57 +181,6 @@ export class Starflare {
   }
 
   clear() {
-    this.sprite.visible = false;
-  }
-}
-
-/**
- * The fan of light behind the card. It is the cheapest thing in the scene and
- * the loudest: one sprite, turning, that fills the stage the card arrives on.
- * Held rather than flashed — this is the light the reveal sits in, not an
- * event in it.
- */
-export class LightRays {
-  constructor(root, count) {
-    this.sprite = new Sprite(makeRaysTexture(512, count));
-    this.sprite.anchor.set(0.5);
-    this.sprite.blendMode = 'add';
-    this.sprite.alpha = 0;
-    this.sprite.visible = false;
-    root.addChild(this.sprite);
-  }
-
-  setCount(count) {
-    const before = this.sprite.texture;
-    this.sprite.texture = makeRaysTexture(512, count);
-    before.destroy(true);
-  }
-
-  layout(center, size) {
-    this.center = center;
-    this.size = size;
-    this.sprite.position.set(center.x, center.y);
-  }
-
-  /**
-   * `presence` is how far the fan is up, 0..1; `clock` turns it. The breathing
-   * is deliberate and slow: a fan at a constant brightness stops being light
-   * and becomes wallpaper.
-   */
-  play(presence, clock, options, colors) {
-    const breath = 1 + Math.sin(clock / options.raysBreatheMs) * options.raysBreathe;
-    const reach = this.size * options.raysReach * (0.75 + 0.25 * presence);
-
-    this.sprite.alpha = options.raysAlpha * presence;
-    // A full-stage sprite at zero opacity still costs its pixels
-    this.sprite.visible = this.sprite.alpha > 0.01;
-    this.sprite.scale.set(((reach * 2) / 512) * breath);
-    this.sprite.rotation = (clock / 1000) * options.raysSpin;
-    this.sprite.tint = colors.glow;
-  }
-
-  clear() {
-    this.sprite.alpha = 0;
     this.sprite.visible = false;
   }
 }

@@ -12,7 +12,12 @@
  */
 import {Container, Graphics, Sprite, Texture} from 'pixi.js';
 import {clamp, easeInOut, easeOut, jitterAt, outlinePath, pointAt} from './geometry';
-import {makeBloomTexture, makeCardBackTexture, makeHaloTexture} from './textures';
+import {
+  makeBloomTexture,
+  makeCardBackTexture,
+  makeHaloTexture,
+  makeSheenTexture,
+} from './textures';
 
 export class RevealCard {
   /** `sceneRoot` is the variant's own container, `screen` the renderer's size. */
@@ -148,6 +153,26 @@ export class RevealCard {
     this.backMask = new Graphics();
     this.back.mask = this.backMask;
 
+    // The highlight that runs across the artwork once the card is whole. Its
+    // own mask, because a Graphics can only mask one thing
+    const reveal = this.o.motion.reveal;
+    this.sheen = new Sprite(
+      makeSheenTexture(Math.round(width * reveal.sheenWidth), Math.round(height * 2)),
+    );
+    this.sheen.anchor.set(0.5);
+    // Sized here rather than by the texture: `makeSheenTexture` bakes at the
+    // device pixel ratio, so the sprite would come out twice as wide as asked
+    this.sheen.width = width * reveal.sheenWidth;
+    this.sheen.height = height * 2.2;
+    this.sheen.blendMode = 'add';
+    this.sheen.alpha = 0;
+    this.sheen.visible = false;
+    this.sheen.rotation = reveal.sheenTilt;
+    const sheenMask = new Graphics()
+      .roundRect(-width / 2, -height / 2, width, height, this.o.theme.cornerRadius)
+      .fill(0xffffff);
+    this.sheen.mask = sheenMask;
+
     this.sparks = new Graphics();
     this.beam = new Graphics();
     this.beamPath = outlinePath(
@@ -162,6 +187,8 @@ export class RevealCard {
       faceMask,
       this.back,
       this.backMask,
+      this.sheen,
+      sheenMask,
       this.sparks,
       this.beam,
     );
@@ -172,6 +199,10 @@ export class RevealCard {
     this.sceneRoot.addChild(this.clipG);
 
     this.rim.baseScaleX = this.rim.scale.x;
+    this.glowBase = {
+      rim: {x: this.rim.scale.x, y: this.rim.scale.y},
+      halo: {x: this.halo.scale.x, y: this.halo.scale.y},
+    };
     this.face.alpha = 0;
     this.drawBackMask(1);
     this.fitFace();
@@ -370,8 +401,10 @@ export class RevealCard {
     this.node.scale.set(1);
     this.bloom.alpha = 0;
     this.rim.alpha = 0;
-    this.rim.scale.x = this.rim.baseScaleX;
+    this.rim.scale.set(this.glowBase.rim.x, this.glowBase.rim.y);
     this.halo.alpha = 0;
+    this.halo.scale.set(this.glowBase.halo.x, this.glowBase.halo.y);
+    this.sheen.visible = false;
     this.turn.scale.x = 1;
     this.back.tint = 0xffffff;
     this.sparks.clear();
@@ -439,6 +472,39 @@ export class RevealCard {
   /** The rarity halo on its own, for a finish that has no beam to run. */
   setHalo(alpha) {
     this.halo.alpha = alpha * this.o.motion.reveal.haloAlpha;
+  }
+
+  /**
+   * A swell of light around the card's own outline — `p` runs 0..1 and back.
+   * It is the card's silhouette that flares, not a ring drawn near it, which
+   * is what keeps a loud moment from reading as a second explosion.
+   */
+  pulse(p) {
+    const reveal = this.o.motion.reveal;
+    this.rim.alpha = Math.min(1, reveal.rimAlpha * (1 + p * reveal.pulseRim));
+    this.halo.alpha = Math.min(1, reveal.haloAlpha * (1 + p * reveal.pulseHalo));
+    const grow = 1 + p * reveal.pulseSpread;
+    this.rim.scale.set(this.glowBase.rim.x * grow, this.glowBase.rim.y * grow);
+    this.halo.scale.set(this.glowBase.halo.x * grow, this.glowBase.halo.y * grow);
+  }
+
+  /**
+   * The highlight crossing the artwork. `t` runs 0..1 over `reveal.sheenMs`;
+   * masked by the card, so it reads as light on the card rather than as light
+   * thrown at it.
+   */
+  sweepSheen(t) {
+    if (t <= 0 || t >= 1) {
+      this.sheen.visible = false;
+      return;
+    }
+    const travel = this.size.width * 1.9;
+    this.sheen.visible = true;
+    this.sheen.position.set(
+      (t - 0.5) * travel,
+      -(t - 0.5) * travel * Math.tan(this.sheen.rotation) * 0.5,
+    );
+    this.sheen.alpha = Math.sin(Math.PI * t) * this.o.motion.reveal.sheenAlpha;
   }
 
   /** A short push out and back, so the card lands rather than appears. */
