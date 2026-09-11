@@ -66,6 +66,145 @@ export function makeBloomTexture(size, color) {
   return Texture.from(canvas);
 }
 
+/**
+ * The front of a blast, as a ring that is thick and soft rather than a stroked
+ * circle — a one-pixel outline reads as a diagram, a front with a core and a
+ * falloff reads as something arriving. Drawn white and tinted by the caller, so
+ * one texture serves both the cold outer wave and the hot inner one.
+ *
+ * `thickness` is the share of the radius the front occupies, `ragged` how far
+ * its outer edge wanders off the circle — a perfectly round shockwave is the
+ * other half of why the old one looked like a diagram.
+ */
+export function makeShockwaveTexture(size, thickness, ragged) {
+  const {canvas, ctx} = makeCanvas(size, size);
+  const c = size / 2;
+  const outer = c * 0.97;
+  const inner = outer * (1 - Math.min(0.9, thickness));
+
+  ctx.save();
+  // The wandering outer edge is a clip, so the falloff underneath stays radial
+  ctx.beginPath();
+  const steps = 128;
+  for (let i = 0; i <= steps; i++) {
+    const angle = (i / steps) * Math.PI * 2;
+    const wobble =
+      Math.sin(angle * 5 + 0.7) * 0.6 + Math.sin(angle * 11 + 2.3) * 0.4;
+    const r = outer * (1 - ragged * (0.5 + 0.5 * wobble));
+    const x = c + Math.cos(angle) * r;
+    const y = c + Math.sin(angle) * r;
+    if (i === 0) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  }
+  ctx.closePath();
+  ctx.clip();
+
+  // Empty inside: a band that keeps any opacity towards its middle fills the
+  // stage with milk instead of passing over it
+  const gradient = ctx.createRadialGradient(c, c, inner * 0.9, c, c, outer);
+  gradient.addColorStop(0, 'rgba(255,255,255,0)');
+  gradient.addColorStop(0.6, 'rgba(255,255,255,0.06)');
+  gradient.addColorStop(0.88, 'rgba(255,255,255,0.9)');
+  gradient.addColorStop(0.96, 'rgba(255,255,255,0.4)');
+  gradient.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+  ctx.restore();
+
+  return Texture.from(canvas);
+}
+
+/**
+ * The flare that goes off with the blast and again when the card lands: a hot
+ * core with spindles of light out of it, long across and short down, the way a
+ * lens answers a light it cannot hold. White, for the caller to tint.
+ */
+export function makeStarburstTexture(size, spread) {
+  const {canvas, ctx} = makeCanvas(size, size);
+  const c = size / 2;
+
+  // Spindles first, so the core burns over where they meet
+  const rays = [
+    {angle: 0, length: 1, width: 0.05},
+    {angle: Math.PI / 2, length: 0.62, width: 0.04},
+    {angle: Math.PI / 4, length: 0.3, width: 0.02},
+    {angle: -Math.PI / 4, length: 0.3, width: 0.02},
+  ];
+
+  for (const ray of rays) {
+    for (const direction of [1, -1]) {
+      const length = c * ray.length * spread * direction;
+      const width = c * ray.width;
+      const dx = Math.cos(ray.angle) * length;
+      const dy = Math.sin(ray.angle) * length;
+      const nx = -Math.sin(ray.angle) * width;
+      const ny = Math.cos(ray.angle) * width;
+
+      const gradient = ctx.createLinearGradient(c, c, c + dx, c + dy);
+      gradient.addColorStop(0, 'rgba(255,255,255,0.95)');
+      gradient.addColorStop(0.35, 'rgba(255,255,255,0.35)');
+      gradient.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = gradient;
+
+      // A spindle rather than a triangle: widest just off the core, so the
+      // light looks pinched at both ends
+      ctx.beginPath();
+      ctx.moveTo(c, c);
+      ctx.lineTo(c + dx * 0.18 + nx, c + dy * 0.18 + ny);
+      ctx.lineTo(c + dx, c + dy);
+      ctx.lineTo(c + dx * 0.18 - nx, c + dy * 0.18 - ny);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
+  const core = ctx.createRadialGradient(c, c, 0, c, c, c * 0.22);
+  core.addColorStop(0, 'rgba(255,255,255,1)');
+  core.addColorStop(0.35, 'rgba(255,255,255,0.6)');
+  core.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = core;
+  ctx.fillRect(0, 0, size, size);
+
+  return Texture.from(canvas);
+}
+
+/**
+ * The fan of rays a reveal is lit from behind with. Wedges of uneven width and
+ * length around the middle, brightest at the centre and gone by the rim — one
+ * sprite turning slowly behind the card does what a hundred particles cannot,
+ * and costs one draw call.
+ */
+export function makeRaysTexture(size, count) {
+  const {canvas, ctx} = makeCanvas(size, size);
+  const c = size / 2;
+
+  for (let i = 0; i < count; i++) {
+    const angle = (i / count) * Math.PI * 2;
+    // Alternating long and short, and never quite even, so the fan turns
+    // rather than pulses
+    const long = i % 2 === 0 ? 1 : 0.62;
+    const length = c * long * (0.82 + 0.18 * Math.sin(i * 2.7));
+    const spread = (Math.PI / count) * (i % 3 === 0 ? 0.85 : 0.5);
+
+    const gradient = ctx.createRadialGradient(c, c, c * 0.06, c, c, length);
+    gradient.addColorStop(0, 'rgba(255,255,255,0.85)');
+    gradient.addColorStop(0.45, 'rgba(255,255,255,0.32)');
+    gradient.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = gradient;
+
+    ctx.beginPath();
+    ctx.moveTo(c, c);
+    ctx.arc(c, c, length, angle - spread, angle + spread);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  return Texture.from(canvas);
+}
+
 /** Halo hugging the card silhouette, in the rarity colour. */
 export function makeHaloTexture(w, h, color, spread, radius) {
   const {canvas, ctx} = makeCanvas(w + spread * 2, h + spread * 2);

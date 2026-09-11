@@ -341,14 +341,55 @@ export interface BurstOptions {
   spikeLength?: number;
   spikeWidth?: number;
   spikeAlpha?: number;
-  /** Expanding rings: how many waves, how long each takes, the gap between. */
+  /** The front: how many waves, how long each takes, the gap between. */
   rings?: number;
   ringMs?: number;
   ringStagger?: number;
-  ringWidth?: number;
+  /**
+   * The band of one wave, as a share of its radius, and how far its outer edge
+   * wanders off the circle — a thin, perfectly round wave reads as a diagram.
+   * `ringSquash` flattens it, so it travels across a floor rather than on the
+   * glass, and `ringCoreAlpha` is the hot white edge riding the coloured band.
+   */
+  ringThickness?: number;
+  ringRagged?: number;
+  ringSquash?: number;
   ringAlpha?: number;
-  /** How far a ring travels, in half-diagonals. */
+  ringCoreAlpha?: number;
+  /** How far a wave travels, in half-diagonals. */
   ringReach?: number;
+  /**
+   * The flare struck at the middle of the blast: how long it burns, how far
+   * its spindles reach across their own texture and then on the stage, how
+   * bright it is, and how far it turns while it burns.
+   */
+  flareMs?: number;
+  flareSpread?: number;
+  flareReach?: number;
+  flareAlpha?: number;
+  flareSpin?: number;
+  /**
+   * The hit: how long the stage is shaken for, how far it is thrown in pack
+   * widths, and how fast it rattles. A blast the viewer watches is an
+   * animation; one that moves the stage is an event.
+   */
+  kickMs?: number;
+  kickAmp?: number;
+  kickHz?: number;
+  /** The white-out over the whole stage, and how bright it goes. */
+  screenFlashMs?: number;
+  screenFlashAlpha?: number;
+  /**
+   * The fan of light the card arrives in: how many rays, how bright, how far
+   * they reach in card half-diagonals, how fast the fan turns, and the slow
+   * breath that keeps it from reading as wallpaper.
+   */
+  rays?: number;
+  raysAlpha?: number;
+  raysReach?: number;
+  raysSpin?: number;
+  raysBreathe?: number;
+  raysBreatheMs?: number;
   /** Debris thrown out as streaks: count, lifetime, reach, size, trail. */
   debris?: number;
   debrisMs?: number;
@@ -399,15 +440,26 @@ export interface BurstOptions {
    */
   tintFrom?: number;
   handoverFrom?: number;
-  /** The landing: a push out and back, and the ring that goes out with it. */
+  /** The landing: a push out and back, and the light struck behind the card. */
   snapMs?: number;
   snapOvershoot?: number;
   /** Share of the snap over which the pieces dissolve off the finished card. */
   dissolveSpan?: number;
-  shockwaveWidth?: number;
-  shockwaveAlpha?: number;
-  /** How far the ring travels past the card, in card half-diagonals. */
-  shockwaveReach?: number;
+  /**
+   * The landing's own front and flare — the blast's light retimed. Reach is in
+   * card half-diagonals; the shape of both comes from the `ring*` and `flare*`
+   * numbers above, so the two moments cannot drift apart.
+   */
+  snapReach?: number;
+  snapAlpha?: number;
+  snapCoreAlpha?: number;
+  snapFlareReach?: number;
+  snapFlareAlpha?: number;
+  /** The landing's own hit and white-out — shorter and softer than the blast's. */
+  snapKickMs?: number;
+  snapKickAmp?: number;
+  snapFlashMs?: number;
+  snapFlashAlpha?: number;
 }
 
 export interface PackOpenerOptions {

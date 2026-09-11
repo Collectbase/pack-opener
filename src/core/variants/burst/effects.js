@@ -1,29 +1,42 @@
 /**
- * What the blast throws off besides the wrapper itself: spikes of light out of
- * the centre, expanding rings, a cloud of debris with trails behind it, and
- * glitter that hangs in the air afterwards.
- *
- * All of it is drawn into three `Graphics` objects rather than one node per
- * particle: a few hundred short-lived motes as sprites would cost a few hundred
- * transforms every frame, and none of them is ever picked, measured or masked.
+ * What the blast throws off besides the wrapper itself: the flare at its
+ * middle, the front travelling out of it, spikes of light, a cloud of debris
+ * with trails behind it, and glitter that hangs in the air afterwards.
  *
  * Each layer runs on its own duration off one clock, so they overlap — the
  * spikes are gone before the debris has finished falling, and the glitter is
  * still drifting when the card starts to gather.
  */
 import {Graphics} from 'pixi.js';
+import {ShockFront, Starflare} from '../shared/blast';
 import {clamp, easeOut, jitterAt} from '../shared/geometry';
 
 export class BlastEffects {
-  constructor(root) {
-    // Three layers, because they are cleared on different schedules
+  constructor(root, options) {
+    // The front and the flare own sprites; the rest is drawn, because a few
+    // hundred motes as sprites would cost a few hundred transforms a frame
+    this.front = new ShockFront(root, options.rings, {
+      thickness: options.ringThickness,
+      ragged: options.ringRagged,
+    });
+    this.flare = new Starflare(root, options.flareSpread);
+
+    // Two layers, because they are cleared on different schedules
     this.spikes = new Graphics();
-    this.rings = new Graphics();
     this.motes = new Graphics();
-    for (const layer of [this.spikes, this.rings, this.motes]) {
+    for (const layer of [this.spikes, this.motes]) {
       layer.blendMode = 'add';
       root.addChild(layer);
     }
+  }
+
+  /** The baked half of the blast: wave count, band, ragged edge, spindles. */
+  setShape(options) {
+    this.front.setShape(options.rings, {
+      thickness: options.ringThickness,
+      ragged: options.ringRagged,
+    });
+    this.flare.setSpread(options.flareSpread);
   }
 
   layout(rect) {
@@ -33,12 +46,15 @@ export class BlastEffects {
     };
     this.size = Math.hypot(rect.width, rect.height) / 2;
     this.rect = rect;
+    this.front.layout(this.center, this.size);
+    this.flare.layout(this.center, this.size);
   }
 
   /** `elapsed` is time since the pack went off, in ms. */
   play(elapsed, options, colors) {
+    this.flare.play(elapsed, options.flareMs, options, colors);
+    this.front.play(elapsed, options, colors);
     this.drawSpikes(elapsed, options, colors);
-    this.drawRings(elapsed, options, colors);
     this.drawMotes(elapsed, options, colors);
   }
 
@@ -73,36 +89,6 @@ export class BlastEffects {
           alpha: options.spikeAlpha * fade,
           cap: 'round',
         });
-    }
-  }
-
-  /**
-   * Expanding rings. More than one, started apart, because a single ring is a
-   * circle growing and three are a shockwave.
-   */
-  drawRings(elapsed, options, colors) {
-    this.rings.clear();
-    let drawn = 0;
-
-    for (let i = 0; i < options.rings; i++) {
-      // Each wave starts a third of a wave-length after the one before it
-      const delay = options.ringMs * options.ringStagger * i;
-      const t = (elapsed - delay) / options.ringMs;
-      if (t <= 0 || t >= 1) {
-        continue;
-      }
-      drawn++;
-      const eased = easeOut(t);
-      const radius = this.size * (0.25 + options.ringReach * eased);
-      this.rings.circle(this.center.x, this.center.y, radius).stroke({
-        width: options.ringWidth * (1 - eased * 0.8),
-        color: i % 2 === 0 ? colors.glow : colors.beam,
-        alpha: options.ringAlpha * (1 - eased),
-      });
-    }
-
-    if (!drawn) {
-      this.rings.clear();
     }
   }
 
@@ -181,8 +167,9 @@ export class BlastEffects {
   }
 
   clear() {
+    this.front.clear();
+    this.flare.clear();
     this.spikes.clear();
-    this.rings.clear();
     this.motes.clear();
   }
 }

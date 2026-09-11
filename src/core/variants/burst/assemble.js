@@ -4,9 +4,8 @@
  * card answers it — a cloud of dust gathers, resolves into pieces of the
  * artwork, and they fly into place until the card is whole.
  *
- * Two objects: `CardAssembly` owns the pieces, `Shockwave` the ring that marks
- * the moment they land. Both draw against the card's own rect, so they follow
- * it wherever the layout puts it.
+ * The landing itself is not drawn here: it is the same front and flare the
+ * blast uses, lit behind the card by the scene.
  */
 import {Container, Graphics, Rectangle, Sprite, Texture} from 'pixi.js';
 import {mixNumbers} from '../../runtime/color';
@@ -237,43 +236,5 @@ export class CardAssembly {
     if (this.rect) {
       this.park();
     }
-  }
-}
-
-/**
- * The ring that goes out when the pieces land. It replaces the beam the cut
- * mechanic runs around the card: a beam is a line looking for an edge, and a
- * card that has just been slammed together wants a hit, not a trace.
- */
-export class Shockwave {
-  constructor(root) {
-    this.view = new Graphics();
-    this.view.blendMode = 'add';
-    root.addChild(this.view);
-  }
-
-  layout(rect) {
-    this.center = {x: rect.left + rect.width / 2, y: rect.top + rect.height / 2};
-    this.base = Math.hypot(rect.width, rect.height) / 2;
-  }
-
-  /** `t` runs 0..1 over `burst.snapMs`. */
-  play(t, options, colors) {
-    this.view.clear();
-    if (t <= 0 || t >= 1) {
-      return;
-    }
-    const eased = easeOut(t);
-    const radius = this.base * (0.7 + options.shockwaveReach * eased);
-    // Thinning as it goes, or the ring reads as a growing circle
-    this.view.circle(this.center.x, this.center.y, radius).stroke({
-      width: options.shockwaveWidth * (1 - eased * 0.7),
-      color: colors.glow,
-      alpha: options.shockwaveAlpha * (1 - eased),
-    });
-  }
-
-  clear() {
-    this.view.clear();
   }
 }

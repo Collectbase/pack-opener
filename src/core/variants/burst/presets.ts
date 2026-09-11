@@ -139,12 +139,40 @@ export const PRESETS: Record<
       spikeLength: 1.5,
       spikeWidth: 7,
       spikeAlpha: 0.9,
+      // The front, not an outline: three waves a stagger apart, each a thick
+      // soft band with a hot white edge riding it, flattened so it reads as
+      // travelling across a floor rather than drawn on the glass
       rings: 3,
       ringMs: 760,
       ringStagger: 0.28,
-      ringWidth: 8,
-      ringAlpha: 0.75,
-      ringReach: 1.5,
+      ringThickness: 0.16,
+      ringRagged: 0.1,
+      ringSquash: 0.22,
+      ringAlpha: 0.55,
+      ringCoreAlpha: 0.7,
+      ringReach: 1.6,
+      // The flare struck at the middle of the blast
+      flareMs: 700,
+      flareSpread: 1,
+      flareReach: 1.6,
+      flareAlpha: 0.8,
+      flareSpin: 0.4,
+      // The stage itself takes the hit: thrown off centre and shaken back,
+      // in pack widths
+      kickMs: 420,
+      kickAmp: 0.035,
+      kickHz: 13,
+      // And goes white for a moment — the cheapest thing in the scene and the
+      // one that carries the blast past the glass
+      screenFlashMs: 220,
+      screenFlashAlpha: 0.85,
+      // The fan of light the card arrives in: one turning sprite behind it
+      rays: 18,
+      raysAlpha: 0.5,
+      raysReach: 2.6,
+      raysSpin: 0.16,
+      raysBreathe: 0.06,
+      raysBreatheMs: 620,
       debris: 90,
       debrisMs: 1400,
       debrisSpread: 1.5,
@@ -181,9 +209,18 @@ export const PRESETS: Record<
       // Share of the snap over which the pieces dissolve off the card
       dissolveSpan: 0.55,
       snapOvershoot: 0.06,
-      shockwaveWidth: 8,
-      shockwaveAlpha: 0.9,
-      shockwaveReach: 1.6,
+      // The same light as the blast, struck behind the card as it lands — one
+      // wave and one flare, tighter and shorter than the blast's
+      snapReach: 1.25,
+      snapAlpha: 0.6,
+      snapCoreAlpha: 0.7,
+      snapFlareReach: 1.35,
+      snapFlareAlpha: 0.75,
+      // A shorter, softer version of the blast's hit when the card lands
+      snapKickMs: 260,
+      snapKickAmp: 0.018,
+      snapFlashMs: 180,
+      snapFlashAlpha: 0.4,
     },
     layout: {
       pack: {
