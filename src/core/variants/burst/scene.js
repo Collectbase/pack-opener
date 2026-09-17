@@ -213,9 +213,13 @@ export class BurstScene {
   }
 
   buildAssembly() {
-    if (!this.cardRect || !this.card.hasArt) {
+    if (!this.cardRect) {
       return;
     }
+    // Also called while the artwork is still downloading: the rect alone is
+    // what the waiting cloud turns around, and `build` cuts pieces only once
+    // there is a texture to cut them from. Skipping it left the assembly
+    // without a centre, and the cloud's first frame took the whole ticker down
     this.assembly.build(this.cardRect, this.card.texture, this.o.burst);
   }
 
