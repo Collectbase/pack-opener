@@ -22,6 +22,11 @@ export interface AssetOptions {
     /** Give up waiting for the artwork and finish the reveal without it. */
     timeoutMs?: number;
   };
+  /**
+   * Stand the revealed card is shown above. Left out, the scene uses the one
+   * baked into the package, so every host gets the same arrival.
+   */
+  pedestal?: {url?: string};
 }
 
 export interface ThemeOptions {
@@ -92,6 +97,8 @@ export interface MotionOptions {
     spinMs?: number;
     unveilMs?: number;
     beamMs?: number;
+    /** Fade-in of the stand under the card, once the card has landed. */
+    pedestalMs?: number;
     /** The card sits still with its halo before the host takes over. */
     holdMs?: number;
     /** Full turns the blank card makes while it floats. */
@@ -199,6 +206,23 @@ export interface LayoutOptions {
     aspect?: number;
     /** Widest the card may get, whatever the artwork's ratio says. */
     maxRatio?: number;
+  };
+  /**
+   * The stand under the revealed card. The card hangs above it rather than
+   * resting on it, so the gap is deliberate.
+   */
+  pedestal?: {
+    /** Width of the stand relative to the card. */
+    widthRatio?: number;
+    /** Its height, relative to its own width. */
+    aspect?: number;
+    /** How far below the card's edge it starts, in card widths. */
+    gapRatio?: number;
+    /**
+     * Air kept under the stand, in card widths. The pair is centred with it,
+     * so whatever the host hangs below — a price, a button — is not crowded.
+     */
+    clearanceRatio?: number;
   };
   /**
    * Size of the three glows around the card. Spread is the softness baked into

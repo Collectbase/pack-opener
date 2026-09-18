@@ -12,6 +12,7 @@ import {MESSAGES} from '../../config/protocol';
 import {toNumber} from '../../runtime/color';
 import {clamp, computeSliceRect, easeOut} from './geometry';
 import {SliceHint} from './hint';
+import {CardPedestal} from '../shared/pedestal';
 import {PackWrapper} from './wrapper';
 import {RevealCard} from '../shared/card';
 
@@ -80,6 +81,7 @@ export class PackScene {
       this.o,
       cardColors(this.o.theme),
     );
+    this.pedestal = new CardPedestal(this.root, this.o);
 
     this.redraw();
   }
@@ -228,12 +230,27 @@ export class PackScene {
     this.card.setTexture(texture);
   }
 
+  setPedestalTexture(texture) {
+    this.pedestal.setTexture(texture);
+  }
 
 
 
 
 
 
+
+
+  /**
+   * The stand goes under where the card comes to rest — the middle of the
+   * stage — not under where it starts, so it stays put while the card slides
+   * out past the lip.
+   */
+  buildPedestal() {
+    const rect = this.card.bounds();
+
+    this.pedestal.build(rect.left + rect.width / 2, rect.bottom, rect.width);
+  }
 
   /** Everything the slide-out needs, resolved before the timeline starts. */
   prepareCard() {
@@ -248,6 +265,9 @@ export class PackScene {
       : this.rect.top + this.rect.height * this.o.interaction.band.top;
 
     this.card.park(this.cutY);
+    // After parking, not before: parking is what fixes where the card lands,
+    // and the stand is placed against that
+    this.buildPedestal();
   }
 
   /** The artwork may still be downloading — wait for it, but not forever. */
@@ -263,10 +283,16 @@ export class PackScene {
       return;
     }
 
+    // The card is out and standing still — the stand can come in under it
+    this.pedestal.reveal();
+
     this.animate('unveil', this.o.motion.reveal.unveilMs, () =>
       this.animate('beam', this.o.motion.reveal.beamMs, () =>
         this.animate('hold', this.o.motion.reveal.holdMs, () =>
-          this.emit(MESSAGES.REVEALED, {card: this.card.bounds()}),
+          this.emit(MESSAGES.REVEALED, {
+            card: this.card.bounds(),
+            pedestal: this.pedestal.bounds(),
+          }),
         ),
       ),
     );
@@ -343,6 +369,7 @@ export class PackScene {
     const before = this.o;
     this.o = next;
     this.card.setOptions(next, cardColors(next.theme));
+    this.pedestal.setOptions(next);
     this.hint.setColor(toNumber(next.theme.hint));
     this.dirty = true;
 
@@ -417,6 +444,7 @@ export class PackScene {
     this.openedPosted = false;
     this.wrapper.reset();
     this.card.rewind(this.rect);
+    this.pedestal.rewind();
     this.artWaitStart = 0;
     this.dirty = true;
     this.redraw();
@@ -470,6 +498,7 @@ export class PackScene {
   update(deltaMS) {
     this.updateIntro(deltaMS);
     this.updateHint(deltaMS);
+    this.pedestal.update(deltaMS);
 
     const anim = this.anim;
     if (anim) {
@@ -516,6 +545,8 @@ export class PackScene {
         // Card reveal phases draw their own layers, the wrapper masks are done
         this.card.reveal(anim.kind, t);
       }
+
+
 
       if (t >= 1) {
         this.anim = null;

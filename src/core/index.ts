@@ -1,4 +1,5 @@
 import {Application, Assets, Texture} from 'pixi.js';
+import {DEFAULT_PEDESTAL_URI} from './variants/shared/defaultPedestal';
 import {MESSAGES} from './config/protocol';
 import {resolveOptions} from './config/resolve';
 import type {PackOpenerOptions} from './config/types';
@@ -35,6 +36,22 @@ export interface CreateOptions {
  * same URL still loads. Artwork the host could display is not a reason to drop
  * the ceremony, so a refused fetch is retried the slow way.
  */
+/**
+ * `Assets.load` picks its parser from the URL's extension, which a data URI
+ * does not have — the stand baked into the package has to go through an
+ * `<img>` instead.
+ */
+async function loadImageTexture(url: string) {
+  const image = new Image();
+  image.crossOrigin = 'anonymous';
+  await new Promise<void>((resolve, reject) => {
+    image.onload = () => resolve();
+    image.onerror = () => reject(new Error(`could not load ${url}`));
+    image.src = url;
+  });
+  return Texture.from(image);
+}
+
 async function loadTexture(url: string) {
   try {
     return await Assets.load({src: url, loadParser: 'loadTextures'});
@@ -113,6 +130,19 @@ export async function createPackOpener(
   }
 
   const scene = variant.create({app, texture, options: resolved, emit});
+
+  // The stand the card lands over: the host's own when it sent one, otherwise
+  // the one baked in. Either way it is late-loading like the card — nothing in
+  // the ceremony waits for it
+  const pedestalUrl = resolved.assets.pedestal.url;
+  (pedestalUrl
+    ? loadTexture(pedestalUrl)
+    : loadImageTexture(DEFAULT_PEDESTAL_URI)
+  )
+    .then((pedestalTexture: unknown) =>
+      scene.setPedestalTexture(pedestalTexture),
+    )
+    .catch(() => {});
 
   // The card can arrive late: the scene waits for it and finishes without it
   // once `assets.card.timeoutMs` runs out

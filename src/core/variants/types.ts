@@ -40,6 +40,8 @@ export interface VariantInstance {
 
   /** Card artwork usually arrives after the animation has started. */
   setCardTexture: (texture: unknown) => void;
+  /** Artwork of the stand the revealed card is shown above. */
+  setPedestalTexture: (texture: unknown) => void;
 
   /**
    * New options for a scene that is already running. Optional: a variant that

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.0
+
+The revealed card is shown above a stand. It belongs to the card rather than to
+a mechanic, so both `slice` and `burst` get the same arrival: the stand is
+placed under where the card comes to rest, holds still while the card travels,
+and fades in with it. The card hangs over it — it does not stand on it, which is
+what the design asks for.
+
+Whose stand it is, is the host's business: `assets.pedestal.url` takes any
+artwork, and without one the scene draws the stand baked into the package, so a
+host that has none still gets the same scene. `layout.pedestal` moves it —
+width against the card, its own aspect, and the gap under the card's edge.
+
 ## 0.2.0
 
 Second mechanic: the `burst` variant with the `charged` preset. The pack is held

@@ -51,6 +51,8 @@ export const PRESETS: Record<
         uncutFade: 0.18,
       },
       reveal: {
+        /** The stand comes in behind the card, ahead of the host's own UI. */
+        pedestalMs: 260,
         spinMs: 3400,
         unveilMs: 600,
         beamMs: 800,
@@ -115,6 +117,12 @@ export const PRESETS: Record<
         aspect: 0.66,
         maxRatio: 0.8,
       },
+      pedestal: {
+        widthRatio: 1.15,
+        aspect: 0.335,
+        gapRatio: 0.077,
+        clearanceRatio: 0.1,
+      },
       glow: {
         bloomScaleX: 3,
         bloomScaleY: 2.2,
@@ -125,7 +133,9 @@ export const PRESETS: Record<
       },
     },
     hint: {
-      lineRatio: 0.1,
+      // Down on the seam, where the finger actually cuts — along the top edge
+      // it read as a light passing above the pack rather than across it
+      lineRatio: 0.2,
       sweep: 0.78,
       headRadius: 8,
       tail: 0.34,

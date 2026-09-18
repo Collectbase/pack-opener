@@ -306,6 +306,23 @@ export class RevealCard {
       .fill({color: this.colors.beam, alpha: reveal.beamAlpha});
   }
 
+  /**
+   * Where the card settles. The card is not alone down there — the stand and
+   * its gap hang below it — so the pair is centred rather than the card, or
+   * the stand ends up over whatever the host puts under the card.
+   */
+  restingY() {
+    const pedestal = this.o.layout.pedestal;
+    const {width} = this.size;
+    const tail = pedestal
+      ? width * pedestal.gapRatio +
+        width * pedestal.widthRatio * pedestal.aspect +
+        width * (pedestal.clearanceRatio ?? 0)
+      : 0;
+
+    return this.screen.height / 2 - tail / 2;
+  }
+
   /** Where the card came to rest, so React Native can build its UI around it. */
   bounds() {
     const {width, height} = this.size;
@@ -421,7 +438,7 @@ export class RevealCard {
     this.fromY = cutY + this.size.height / 2;
     this.node.y = this.fromY;
     this.node.alpha = 1;
-    this.toY = this.screen.height / 2;
+    this.toY = this.restingY();
     this.turn.mask = this.clipG;
     this.clip(cutY);
   }
@@ -433,7 +450,7 @@ export class RevealCard {
    */
   place(rect) {
     this.fromY = rect.top + rect.height / 2;
-    this.toY = this.screen.height / 2;
+    this.toY = this.restingY();
     this.node.y = this.fromY;
     this.node.alpha = 0;
     this.node.scale.set(1);

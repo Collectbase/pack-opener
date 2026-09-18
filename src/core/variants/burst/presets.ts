@@ -61,6 +61,8 @@ export const PRESETS: Record<
       // `holdMs`, the three glow opacities and the card's geometry are read
       // from here — the spin, the wipe and the beam belong to the cut
       reveal: {
+        /** The stand comes in behind the card, ahead of the host's own UI. */
+        pedestalMs: 260,
         spinMs: 2200,
         unveilMs: 600,
         beamMs: 800,
@@ -227,6 +229,12 @@ export const PRESETS: Record<
         packWidthRatio: 0.64,
         aspect: 0.66,
         maxRatio: 0.8,
+      },
+      pedestal: {
+        widthRatio: 1.15,
+        aspect: 0.335,
+        gapRatio: 0.077,
+        clearanceRatio: 0.1,
       },
       glow: {
         bloomScaleX: 3,

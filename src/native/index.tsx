@@ -112,6 +112,9 @@ const PackOpener = forwardRef<PackOpenerHandle, PackOpenerProps>(
     const [packRect, setPackRect] = useState<Rect | null>(null);
     // Where the revealed card came to rest — the slots hang off its edges
     const [cardRect, setCardRect] = useState<Rect | null>(null);
+    // Where the scene put the stand, when it drew one — the slot below the
+    // card starts under it, or the two overlap
+    const [pedestalRect, setPedestalRect] = useState<Rect | null>(null);
     // Chrome around the pack fades out the moment the cut begins
     const [cutting, setCutting] = useState(false);
 
@@ -208,6 +211,9 @@ const PackOpener = forwardRef<PackOpenerHandle, PackOpenerProps>(
           case MESSAGES.REVEALED:
             if (data.card) {
               setCardRect(data.card);
+            }
+            if (data.pedestal) {
+              setPedestalRect(data.pedestal);
             }
             onRevealComplete?.();
             break;
@@ -307,7 +313,10 @@ const PackOpener = forwardRef<PackOpenerHandle, PackOpenerProps>(
           )}
           {!!cardRect && !!bottomSlot && (
             <View
-              style={[styles.bottomSlot, {top: cardRect.bottom}]}
+              style={[
+                styles.bottomSlot,
+                {top: pedestalRect?.bottom ?? cardRect.bottom},
+              ]}
               pointerEvents="box-none">
               {bottomSlot}
             </View>

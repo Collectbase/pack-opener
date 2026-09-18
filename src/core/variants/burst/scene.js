@@ -16,6 +16,7 @@
 import {Container} from 'pixi.js';
 import {MESSAGES} from '../../config/protocol';
 import {toNumber} from '../../runtime/color';
+import {CardPedestal} from '../shared/pedestal';
 import {RevealCard} from '../shared/card';
 import {clamp, computePackRect} from '../shared/geometry';
 import {ScreenFlash} from '../shared/blast';
@@ -75,6 +76,7 @@ export class BurstScene {
     this.effects.layout(this.rect);
 
     this.card = new RevealCard(this.root, app.screen, this.o, this.colors);
+    this.pedestal = new CardPedestal(this.root, this.o);
     this.assembly = new CardAssembly(this.root, this.o.theme);
 
     // Over everything, the card included: the flash is the stage being hit,
@@ -201,6 +203,15 @@ export class BurstScene {
     }
     this.card.place(this.rect);
     this.cardRect = this.card.bounds();
+    this.pedestal.build(
+      this.cardRect.left + this.cardRect.width / 2,
+      this.cardRect.bottom,
+      this.cardRect.width,
+    );
+  }
+
+  setPedestalTexture(texture) {
+    this.pedestal.setTexture(texture);
   }
 
   setCardTexture(texture) {
@@ -287,7 +298,10 @@ export class BurstScene {
       this.animate('snap', this.o.burst.snapMs, () => {
         this.assembly.hide();
         this.animate('settle', this.o.motion.reveal.holdMs, () =>
-          this.emit(MESSAGES.REVEALED, {card: this.card.bounds()}),
+          this.emit(MESSAGES.REVEALED, {
+            card: this.card.bounds(),
+            pedestal: this.pedestal.bounds(),
+          }),
         );
       });
     });
@@ -304,6 +318,8 @@ export class BurstScene {
       this.card.revealInstant();
     }
     this.card.setAlpha(alpha);
+    // Behind the card it hands over to, never with it
+    this.pedestal.reveal();
   }
 
   /** Charge it without a finger — the host's tap-to-open fallback. */
@@ -330,6 +346,7 @@ export class BurstScene {
     this.clock += deltaMS;
     this.updateIntro(deltaMS);
     this.updateCharge(deltaMS);
+    this.pedestal.update(deltaMS);
 
     const anim = this.anim;
     if (anim) {
@@ -478,6 +495,7 @@ export class BurstScene {
     this.o = next;
     this.colors = sceneColors(next.theme);
     this.card.setOptions(next, this.colors);
+    this.pedestal.setOptions(next);
 
     const baked =
       JSON.stringify(before.theme) !== JSON.stringify(next.theme) ||
@@ -539,6 +557,7 @@ export class BurstScene {
       this.card.destroy();
       this.card.build(this.rect);
       this.card.rewind(this.rect);
+    this.pedestal.rewind();
       this.cardRect = this.card.bounds();
       this.buildAssembly();
     }
@@ -572,6 +591,7 @@ export class BurstScene {
     this.kick = 0;
     this.root.position.set(0, 0);
     this.card.rewind(this.rect);
+    this.pedestal.rewind();
   }
 
   /**

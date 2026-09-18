@@ -95,6 +95,9 @@ export function resolveOptions(options: PackOpenerOptions): ResolvedOptions {
         url: options.assets?.card?.url ?? '',
         timeoutMs: options.assets?.card?.timeoutMs ?? CARD_TIMEOUT_MS,
       },
+      // Empty means "the one baked into the package" — the scene decides, so a
+      // host that has no stand of its own passes nothing
+      pedestal: {url: options.assets?.pedestal?.url ?? ''},
     },
     theme: merge(preset.theme, options.theme),
     motion: merge(preset.motion, options.motion),
