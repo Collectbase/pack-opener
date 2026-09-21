@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.0
+
+The host can keep bands of the stage for its own UI: `layout.stage.reserveTop`
+and `reserveBottom`, in css px. The card and its stand are centred in what is
+left and shrink together to fit it, so a title above the card gets its room
+from the scene instead of landing on the artwork.
+
+The pair is never dropped below the middle of the stage to make that room — it
+shrinks instead. Whatever a host hangs under the card was laid out around a
+card that sits in the middle, and its height is rarely known before it is
+drawn; a band at the top must not push the stand onto it. Nothing is reserved
+by default, and a scene that reserves nothing is laid out exactly as before.
+
 ## 0.3.0
 
 The revealed card is shown above a stand. It belongs to the card rather than to

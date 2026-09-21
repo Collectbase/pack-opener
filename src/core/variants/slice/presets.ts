@@ -106,6 +106,12 @@ export const PRESETS: Record<
       autoArc: {inset: 0.06, fromY: 0.23, toY: 0.17, controlY: 0.1},
     },
     layout: {
+      // Nothing is kept back by default: a host that draws over the stage says
+      // how much of it it needs
+      stage: {
+        reserveTop: 0,
+        reserveBottom: 0,
+      },
       pack: {
         widthRatio: 0.86,
         heightRatio: 0.66,

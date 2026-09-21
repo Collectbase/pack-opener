@@ -186,6 +186,16 @@ export interface InteractionOptions {
 }
 
 export interface LayoutOptions {
+  /**
+   * Bands of the stage the host keeps for its own UI — a title above the card,
+   * buttons below it. The card and its stand are centred in what is left and
+   * shrink to fit it, instead of sliding under whatever the host draws there.
+   * In css px; the pack is not affected, it is gone by the time they matter.
+   */
+  stage?: {
+    reserveTop?: number;
+    reserveBottom?: number;
+  };
   /** Where the pack sits and how much of the stage it takes. */
   pack?: {
     /** Caps against the stage; the artwork's own aspect decides the rest. */

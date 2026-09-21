@@ -219,6 +219,12 @@ export const PRESETS: Record<
       // presenting it
     },
     layout: {
+      // Nothing is kept back by default: a host that draws over the stage says
+      // how much of it it needs
+      stage: {
+        reserveTop: 0,
+        reserveBottom: 0,
+      },
       pack: {
         widthRatio: 0.86,
         heightRatio: 0.66,

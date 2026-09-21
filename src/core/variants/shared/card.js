@@ -84,6 +84,24 @@ export class RevealCard {
       width = maxWidth;
       height = width / ratio;
     }
+
+    // Whatever the host kept for itself is not the stage's to use: the card
+    // and its stand give way together, so the pair still reads as one object.
+    // Two things bound them — what is left of the stage, and twice the band
+    // above, because the pair is not dropped below the middle of the stage to
+    // clear it (see `restingY`).
+    const tailRatio = this.tailFor(width) / height;
+    const room = Math.min(
+      this.availableHeight(),
+      this.screen.height - 2 * (this.o.layout.stage?.reserveTop ?? 0),
+    );
+    const maxHeight = room / (1 + tailRatio);
+    if (height > maxHeight && maxHeight > 0) {
+      const fit = maxHeight / height;
+      width *= fit;
+      height *= fit;
+    }
+
     this.size = {width, height};
 
     this.node = new Container();
@@ -306,21 +324,43 @@ export class RevealCard {
       .fill({color: this.colors.beam, alpha: reveal.beamAlpha});
   }
 
+  /** What hangs below the card: the gap, the stand and the air under it. */
+  tailFor(width) {
+    const pedestal = this.o.layout.pedestal;
+
+    return pedestal
+      ? width * pedestal.gapRatio +
+          width * pedestal.widthRatio * pedestal.aspect +
+          width * (pedestal.clearanceRatio ?? 0)
+      : 0;
+  }
+
+  /** The stage minus the bands the host keeps for its own UI. */
+  availableHeight() {
+    const stage = this.o.layout.stage;
+
+    return (
+      this.screen.height - (stage?.reserveTop ?? 0) - (stage?.reserveBottom ?? 0)
+    );
+  }
+
   /**
    * Where the card settles. The card is not alone down there — the stand and
    * its gap hang below it — so the pair is centred rather than the card, or
    * the stand ends up over whatever the host puts under the card.
+   *
+   * It is centred in what the host left free, but never sinks below the middle
+   * of the stage: what a host hangs under the card — a price, buttons — was
+   * laid out around a card that sits there, and it knows its own height better
+   * than it can tell us before it is drawn. So a band claimed at the top buys
+   * its room by making the pair smaller, not by pushing it down onto them.
    */
   restingY() {
-    const pedestal = this.o.layout.pedestal;
-    const {width} = this.size;
-    const tail = pedestal
-      ? width * pedestal.gapRatio +
-        width * pedestal.widthRatio * pedestal.aspect +
-        width * (pedestal.clearanceRatio ?? 0)
-      : 0;
+    const tail = this.tailFor(this.size.width);
+    const top = this.o.layout.stage?.reserveTop ?? 0;
+    const centred = top + this.availableHeight() / 2 - tail / 2;
 
-    return this.screen.height / 2 - tail / 2;
+    return Math.min(centred, this.screen.height / 2 - tail / 2);
   }
 
   /** Where the card came to rest, so React Native can build its UI around it. */
