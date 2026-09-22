@@ -98,10 +98,23 @@ export function pointAt(path, distance) {
  * the artwork's own aspect decides the rest, so the same numbers hold on a
  * phone and on a tablet. A variant that needs more — bands a gesture reads,
  * for instance — derives them from this box rather than redoing it.
+ *
+ * `stage` is what the host keeps for itself (`layout.stage`): the pack is
+ * sized and centred in the band left free, by the same rule as the card — a
+ * band claimed at the top buys its room by making the pack smaller around
+ * the middle of the stage, never by pushing it down onto what the host
+ * draws below (see `RevealCard.restingY`). `anchorY`, when given, is where
+ * the pack's centre goes instead — a scene anchoring the pack to the card's
+ * resting place passes it, sized on a first pass without it.
  */
-export function computePackRect(width, height, aspect, pack) {
+export function computePackRect(width, height, aspect, pack, stage, anchorY) {
+  const reservedTop = stage?.reserveTop ?? 0;
+  const reservedBottom = stage?.reserveBottom ?? 0;
+  const free = Math.max(1, height - reservedTop - reservedBottom);
+  const room = Math.min(free, height - 2 * reservedTop);
+
   const maxWidth = width * pack.widthRatio;
-  const maxHeight = height * pack.heightRatio;
+  const maxHeight = room * pack.heightRatio;
   let w = maxWidth;
   let h = w / aspect;
   if (h > maxHeight) {
@@ -109,7 +122,12 @@ export function computePackRect(width, height, aspect, pack) {
     w = h * aspect;
   }
   const left = (width - w) / 2;
-  const top = (height - h) / 2 + height * pack.offsetY;
+  const centredInFree = reservedTop + (free - h) / 2 + free * pack.offsetY;
+  const centredOnStage = (height - h) / 2 + height * pack.offsetY;
+  const top =
+    anchorY === undefined
+      ? Math.min(centredInFree, centredOnStage)
+      : anchorY - h / 2;
 
   return {
     left,

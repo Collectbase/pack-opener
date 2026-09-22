@@ -12,8 +12,8 @@ import {computePackRect} from '../shared/geometry';
  * bottom of the band the blade is clamped to, and the half-width of the fully
  * opened gap.
  */
-export function computeSliceRect(width, height, aspect, interaction, pack) {
-  const rect = computePackRect(width, height, aspect, pack);
+export function computeSliceRect(width, height, aspect, interaction, pack, stage, anchorY) {
+  const rect = computePackRect(width, height, aspect, pack, stage, anchorY);
 
   return {
     ...rect,

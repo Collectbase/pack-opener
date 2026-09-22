@@ -12,6 +12,7 @@ import type {
   PackOpenerEvent,
   PackOpenerInstance,
   PackOpenerOptions,
+  PackOpenerTimeline,
 } from '../core';
 
 export interface Rect {
@@ -25,6 +26,8 @@ export interface Rect {
 
 export interface PackOpenerHandle {
   autoSlice: () => void;
+  /** Mix the choice up — the carousel's ring spins on; a no-op for the other mechanics. */
+  shuffle: () => void;
   reset: () => void;
   setEnabled: (value: boolean) => void;
 }
@@ -49,6 +52,19 @@ export interface PackOpenerProps {
   /** The cut was let go of before it finished — the pack is untouched again. */
   onInteractionCancel?: () => void;
   onError?: (message: string) => void;
+  /**
+   * A phase of the ceremony has begun — the scene's own name for it and how
+   * long it will run, see `MESSAGES.PHASE`. For scoring the ceremony with sound.
+   */
+  onPhase?: (name: string, durationMs: number) => void;
+  /**
+   * New `options` could not be applied on the spot: the scene is mid-ceremony
+   * or holding a revealed card, and the change waits for `reset()`. An editor
+   * that wants every change seen at once resets here.
+   */
+  onOptionsDeferred?: () => void;
+  /** How long each phase will run — with `ready` and after every retune, see `MESSAGES.TIMELINE`. */
+  onTimeline?: (timeline: PackOpenerTimeline) => void;
   /** Every event, raw — for hosts that would rather switch themselves. */
   onEvent?: (event: PackOpenerEvent) => void;
 }
@@ -71,6 +87,9 @@ const PackOpener = forwardRef<PackOpenerHandle, PackOpenerProps>(
       onRevealComplete,
       onInteractionCancel,
       onError,
+      onPhase,
+      onOptionsDeferred,
+      onTimeline,
       onEvent,
     },
     ref,
@@ -89,6 +108,9 @@ const PackOpener = forwardRef<PackOpenerHandle, PackOpenerProps>(
       onRevealComplete,
       onInteractionCancel,
       onError,
+      onPhase,
+      onOptionsDeferred,
+      onTimeline,
       onEvent,
     });
     handlers.current = {
@@ -100,6 +122,9 @@ const PackOpener = forwardRef<PackOpenerHandle, PackOpenerProps>(
       onRevealComplete,
       onInteractionCancel,
       onError,
+      onPhase,
+      onOptionsDeferred,
+      onTimeline,
       onEvent,
     };
 
@@ -132,6 +157,14 @@ const PackOpener = forwardRef<PackOpenerHandle, PackOpenerProps>(
         case MESSAGES.ERROR:
           h.onError?.(String(event.message ?? 'scene error'));
           break;
+        case MESSAGES.PHASE:
+          h.onPhase?.(String(event.name), Number(event.durationMs) || 0);
+          break;
+        case MESSAGES.TIMELINE: {
+          const {type: _type, ...timeline} = event;
+          h.onTimeline?.(timeline as PackOpenerTimeline);
+          break;
+        }
         default:
           break;
       }
@@ -152,14 +185,24 @@ const PackOpener = forwardRef<PackOpenerHandle, PackOpenerProps>(
         return undefined;
       }
       let cancelled = false;
+      const bootOptions = latestOptions.current;
 
-      createPackOpener(host, latestOptions.current, {onEvent: onSceneEvent})
+      createPackOpener(host, bootOptions, {onEvent: onSceneEvent})
         .then(instance => {
           if (cancelled) {
             instance.destroy();
             return;
           }
           instanceRef.current = instance;
+          // Options that changed while the scene was coming up — a band the
+          // host measured, a stand it fetched — reached no instance; they are
+          // applied now rather than lost until the next change
+          const latest = latestOptions.current;
+          if (latest !== bootOptions && JSON.stringify(latest) !== JSON.stringify(bootOptions)) {
+            if (instance.setOptions(latest) === 'deferred') {
+              handlers.current.onOptionsDeferred?.();
+            }
+          }
         })
         .catch(error => {
           if (!cancelled) {
@@ -178,16 +221,19 @@ const PackOpener = forwardRef<PackOpenerHandle, PackOpenerProps>(
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [bootKey, onSceneEvent]);
 
-    // Retune the running scene. A false return means the change needs a fresh
-    // scene, which the mount effect above is already doing.
+    // Retune the running scene. `scene` means the change needs a fresh one,
+    // which the mount effect above is already doing; `deferred` is the host's
+    // to act on
     useEffect(() => {
-      instanceRef.current?.setOptions(JSON.parse(optionsKey));
+      const result = instanceRef.current?.setOptions(JSON.parse(optionsKey));
+      if (result === 'deferred') handlers.current.onOptionsDeferred?.();
     }, [optionsKey]);
 
     useImperativeHandle(
       ref,
       () => ({
         autoSlice: () => instanceRef.current?.autoSlice(),
+        shuffle: () => instanceRef.current?.shuffle(),
         reset: () => instanceRef.current?.reset(),
         setEnabled: (value: boolean) => instanceRef.current?.setEnabled(value),
       }),

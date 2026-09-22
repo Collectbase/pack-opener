@@ -60,13 +60,10 @@ export class PackScene {
     this.root.alpha = 0;
     app.stage.addChild(this.root);
 
-    const aspect = texture.width / texture.height;
-    this.rect = computeSliceRect(
+    this.rect = this.layoutRect(
       app.screen.width,
       app.screen.height,
-      aspect,
-      this.o.interaction,
-      this.o.layout.pack,
+      texture.width / texture.height,
     );
 
     this.wrapper = new PackWrapper(this.root, texture, this.rect);
@@ -264,29 +261,46 @@ export class PackScene {
       ? trail.reduce((sum, point) => sum + point.y, 0) / trail.length
       : this.rect.top + this.rect.height * this.o.interaction.band.top;
 
-    this.card.park(this.cutY);
+    this.card.park(this.cutY, this.rect);
     // After parking, not before: parking is what fixes where the card lands,
     // and the stand is placed against that
     this.buildPedestal();
   }
 
-  /** The artwork may still be downloading — wait for it, but not forever. */
+  /**
+   * The artwork may still be downloading — wait for it, but not forever. The
+   * wait is the card turning on at a steady speed, a whole turn per hold, so
+   * however many holds it takes read as one unbroken turn; the host hears
+   * `spinHold` once, when the wait begins, and nothing for the holds after.
+   */
   startUnveil() {
-    if (!this.card.hasArt && !this.artWaitStart) {
+    // The first hold is the one the host hears; the holds after it continue it
+    const firstHold = !this.card.hasArt && !this.artWaitStart;
+    if (firstHold) {
       this.artWaitStart = Date.now();
     }
     const waited = this.artWaitStart ? Date.now() - this.artWaitStart : 0;
     if (!this.card.hasArt && waited < this.o.assets.card.timeoutMs) {
-      this.animate('spin', this.o.motion.reveal.artWaitSpinMs, () =>
-        this.startUnveil(),
+      this.animate(
+        'spinHold',
+        this.o.motion.reveal.artWaitSpinMs,
+        () => this.startUnveil(),
+        !firstHold,
       );
       return;
     }
 
-    // The card is out and standing still — the stand can come in under it
-    this.pedestal.reveal();
+    // The card is out and standing still — the stand can come in under it.
+    // A card that still has to lift onto the stand gets it once it is there
+    const lifts = this.card.lifts;
+    if (!lifts) {
+      this.pedestal.reveal();
+    }
 
-    this.animate('unveil', this.o.motion.reveal.unveilMs, () =>
+    this.animate('unveil', this.o.motion.reveal.unveilMs, () => {
+      if (lifts) {
+        this.pedestal.reveal();
+      }
       this.animate('beam', this.o.motion.reveal.beamMs, () =>
         this.animate('hold', this.o.motion.reveal.holdMs, () =>
           this.emit(MESSAGES.REVEALED, {
@@ -294,8 +308,8 @@ export class PackScene {
             pedestal: this.pedestal.bounds(),
           }),
         ),
-      ),
-    );
+      );
+    });
   }
 
 
@@ -376,18 +390,23 @@ export class PackScene {
     const baked =
       JSON.stringify(before.theme) !== JSON.stringify(next.theme) ||
       JSON.stringify(before.layout) !== JSON.stringify(next.layout) ||
+      JSON.stringify(before.rest) !== JSON.stringify(next.rest) ||
       JSON.stringify(before.interaction.band) !==
         JSON.stringify(next.interaction.band);
 
     if (!baked) {
       this.redraw();
-      return;
+      return true;
     }
-    if (this.anim || this.started) {
+    // `locked` covers a ceremony that has played out and is waiting for
+    // `reset()`: rebuilding then would rewind the revealed card into the pack.
+    // The false return tells the host the change is waiting on that reset
+    if (this.anim || this.started || this.locked) {
       this.pendingRebuild = true;
-      return;
+      return false;
     }
     this.rebuild();
+    return true;
   }
 
   /**
@@ -396,22 +415,38 @@ export class PackScene {
    * started with and the new geometry rides on the next `reset()`.
    */
   resize() {
-    if (this.anim || this.started) {
+    // `locked` covers a ceremony that has played out and is waiting for
+    // `reset()`: rebuilding then would rewind the revealed card into the pack
+    if (this.anim || this.started || this.locked) {
       this.pendingRebuild = true;
       return;
     }
     this.rebuild();
   }
 
+  /**
+   * The pack's box. With `layout.pack.anchor: 'card'` the pack is placed so
+   * its centre is where the card will come to rest — sized on a first pass,
+   * then moved — so the cut does not hoist the card up out of the pack's
+   * place. The default keeps it centred on the stage, nudged by `offsetY`.
+   */
+  layoutRect(width, height, aspect) {
+    const {pack, stage} = this.o.layout;
+    const sized = computeSliceRect(width, height, aspect, this.o.interaction, pack, stage);
+    if (pack.anchor !== 'card') {
+      return sized;
+    }
+    const anchorY = RevealCard.restingCentre({width, height}, sized, this.o);
+    return computeSliceRect(width, height, aspect, this.o.interaction, pack, stage, anchorY);
+  }
+
   /** Re-derives the pack rect and the card, which bake options into textures. */
   rebuild() {
     this.pendingRebuild = false;
-    this.rect = computeSliceRect(
+    this.rect = this.layoutRect(
       this.app.screen.width,
       this.app.screen.height,
       this.texture.width / this.texture.height,
-      this.o.interaction,
-      this.o.layout.pack,
     );
     this.wrapper.layout(this.rect);
     if (this.card.built) {
@@ -451,8 +486,13 @@ export class PackScene {
   }
 
 
-  animate(kind, duration, onDone) {
+  animate(kind, duration, onDone, quiet = false) {
     this.anim = {kind, duration, elapsed: 0, onDone};
+    // `quiet`: a phase that continues the one before it (another hold of
+    // the same turn) is not announced again
+    if (!quiet) {
+      this.emit(MESSAGES.PHASE, {name: kind, durationMs: duration});
+    }
     if (kind === 'runOut') {
       const n = this.trail.length;
       const last = this.trail[n - 1] ?? {x: this.bladeX, y: this.bladeY};

@@ -10,14 +10,105 @@
  * put there whole once something else has drawn its arrival (`place` +
  * `revealInstant`).
  */
-import {Container, Graphics, Sprite, Texture} from 'pixi.js';
+import {Container, Graphics, MeshRope, Point, Sprite, Texture} from 'pixi.js';
 import {clamp, easeInOut, easeOut, jitterAt, outlinePath, pointAt} from './geometry';
 import {
   makeBloomTexture,
   makeCardBackTexture,
+  makeCometTexture,
   makeHaloTexture,
   makeSheenTexture,
 } from './textures';
+
+/**
+ * Samples along the ribbon beam. Dense on purpose: a rope wider than the
+ * corner radius folds on itself where the outline turns, and the fold shows
+ * as spokes unless the turn is sampled finely.
+ */
+const RIBBON_POINTS = 96;
+
+/** What hangs below the card: the gap, the stand and the air under it. */
+function tailBelow(width, o) {
+  const pedestal = o.layout.pedestal;
+
+  return pedestal
+    ? width * pedestal.gapRatio +
+        width * pedestal.widthRatio * pedestal.aspect +
+        width * (pedestal.clearanceRatio ?? 0)
+    : 0;
+}
+
+/**
+ * Where a card of `width` settles. The card is not alone down there — the
+ * stand and its gap hang below it — so the pair is centred rather than the
+ * card, or the stand ends up over whatever the host puts under the card.
+ *
+ * It is centred in what the host left free, but never sinks below the middle
+ * of the stage: what a host hangs under the card — a price, buttons — was
+ * laid out around a card that sits there, and it knows its own height better
+ * than it can tell us before it is drawn. So a band claimed at the top buys
+ * its room by making the pair smaller, not by pushing it down onto them.
+ */
+function restFor(width, screen, o) {
+  const stage = o.layout.stage;
+  const tail = tailBelow(width, o);
+  const top = stage?.reserveTop ?? 0;
+  const available = screen.height - top - (stage?.reserveBottom ?? 0);
+  const centred = top + available / 2 - tail / 2;
+
+  return Math.min(centred, screen.height / 2 - tail / 2);
+}
+
+/**
+ * The card's size for a pack rect and where its centre comes to rest, from
+ * the options alone — the maths `build` and `restingY` run, but callable
+ * before the card exists, so a scene can lay the pack out around the card's
+ * resting place (`layout.pack.anchor: 'card'`). `aspect` is the artwork's
+ * when it is known, the layout's guess otherwise.
+ */
+export function cardLayoutFor(rect, screen, aspect, o) {
+  const ratio = Math.min(aspect, o.layout.card.maxRatio);
+
+  // A box the host gave outright: the artwork is fitted into it the way a
+  // contained image is — by height when narrower than the box, by width
+  // when wider — centred across and set on the box's bottom edge
+  const box = o.rest?.card;
+  if (box) {
+    const fitByHeight = ratio <= box.width / box.height;
+    const height = fitByHeight ? box.height : box.width / ratio;
+    const width = fitByHeight ? height * ratio : box.width;
+    return {width, height, restY: box.top + box.height - height / 2};
+  }
+
+  // Capping the width has to shrink the height too, or the card comes out
+  // stretched and the artwork gets cropped
+  let height = rect.height * o.layout.card.heightRatio;
+  let width = height * ratio;
+  const maxWidth = rect.width * o.layout.card.packWidthRatio;
+  if (width > maxWidth) {
+    width = maxWidth;
+    height = width / ratio;
+  }
+
+  // Whatever the host kept for itself is not the stage's to use: the card
+  // and its stand give way together, so the pair still reads as one object.
+  // Two things bound them — what is left of the stage, and twice the band
+  // above, because the pair is not dropped below the middle of the stage to
+  // clear it (see `restFor`).
+  const stage = o.layout.stage;
+  const reservedTop = stage?.reserveTop ?? 0;
+  const available = screen.height - reservedTop - (stage?.reserveBottom ?? 0);
+  const tailRatio = tailBelow(width, o) / height;
+  const room = Math.min(available, screen.height - 2 * reservedTop);
+  const maxHeight = room / (1 + tailRatio);
+  if (height > maxHeight && maxHeight > 0) {
+    const fit = maxHeight / height;
+    width *= fit;
+    height *= fit;
+  }
+
+  return {width, height, restY: restFor(width, screen, o)};
+}
 
 export class RevealCard {
   /** `sceneRoot` is the variant's own container, `screen` the renderer's size. */
@@ -69,44 +160,23 @@ export class RevealCard {
     this.face.position.set(0, 0);
   }
 
+  /** Where the card would come to rest for `rect`, before any card is built. */
+  static restingCentre(screen, rect, options) {
+    return cardLayoutFor(rect, screen, options.layout.card.aspect, options).restY;
+  }
+
   build(rect) {
-        const aspect = this.texture
+    const aspect = this.texture
       ? this.texture.width / this.texture.height
       : this.o.layout.card.aspect;
-    const ratio = Math.min(aspect, this.o.layout.card.maxRatio);
-
-    // Capping the width has to shrink the height too, or the card comes out
-    // stretched and the artwork gets cropped
-    let height = rect.height * this.o.layout.card.heightRatio;
-    let width = height * ratio;
-    const maxWidth = rect.width * this.o.layout.card.packWidthRatio;
-    if (width > maxWidth) {
-      width = maxWidth;
-      height = width / ratio;
-    }
-
-    // Whatever the host kept for itself is not the stage's to use: the card
-    // and its stand give way together, so the pair still reads as one object.
-    // Two things bound them — what is left of the stage, and twice the band
-    // above, because the pair is not dropped below the middle of the stage to
-    // clear it (see `restingY`).
-    const tailRatio = this.tailFor(width) / height;
-    const room = Math.min(
-      this.availableHeight(),
-      this.screen.height - 2 * (this.o.layout.stage?.reserveTop ?? 0),
-    );
-    const maxHeight = room / (1 + tailRatio);
-    if (height > maxHeight && maxHeight > 0) {
-      const fit = maxHeight / height;
-      width *= fit;
-      height *= fit;
-    }
-
+    const {width, height} = cardLayoutFor(rect, this.screen, aspect, this.o);
     this.size = {width, height};
 
     this.node = new Container();
+    // In the pack's column — or the host's box's, when the host said where
+    const box = this.o.rest?.card;
     this.node.position.set(
-      rect.left + rect.width / 2,
+      box ? box.left + box.width / 2 : rect.left + rect.width / 2,
       rect.top + rect.height / 2,
     );
     this.node.alpha = 0;
@@ -287,11 +357,18 @@ export class RevealCard {
         });
     }
     if (progress <= 0 || progress >= 1) {
+      this.hideRibbon();
       return;
     }
 
     const head = progress * path.total;
     const tail = path.total * reveal.beamTail;
+    if (reveal.beamStyle === 'ribbon') {
+      this.drawRibbon(head, tail);
+      return;
+    }
+    this.hideRibbon();
+
     const steps = reveal.beamSteps;
     for (let i = 0; i < steps; i++) {
       const t0 = i / steps;
@@ -324,43 +401,61 @@ export class RevealCard {
       .fill({color: this.colors.beam, alpha: reveal.beamAlpha});
   }
 
-  /** What hangs below the card: the gap, the stand and the air under it. */
-  tailFor(width) {
-    const pedestal = this.o.layout.pedestal;
-
-    return pedestal
-      ? width * pedestal.gapRatio +
-          width * pedestal.widthRatio * pedestal.aspect +
-          width * (pedestal.clearanceRatio ?? 0)
-      : 0;
-  }
-
-  /** The stage minus the bands the host keeps for its own UI. */
-  availableHeight() {
-    const stage = this.o.layout.stage;
-
-    return (
-      this.screen.height - (stage?.reserveTop ?? 0) - (stage?.reserveBottom ?? 0)
-    );
-  }
-
   /**
-   * Where the card settles. The card is not alone down there — the stand and
-   * its gap hang below it — so the pair is centred rather than the card, or
-   * the stand ends up over whatever the host puts under the card.
-   *
-   * It is centred in what the host left free, but never sinks below the middle
-   * of the stage: what a host hangs under the card — a price, buttons — was
-   * laid out around a card that sits there, and it knows its own height better
-   * than it can tell us before it is drawn. So a band claimed at the top buys
-   * its room by making the pair smaller, not by pushing it down onto them.
+   * The beam in one piece. Each short stroke above is drawn on its own, and
+   * once the card is big — a desktop stage — the round caps stop overlapping
+   * and the trail reads as a row of dots. A rope lays one soft gradient along
+   * the outline instead, continuous at any size: the wide glow in the rarity
+   * colour, the bright core over it, the head rounded off by the texture so
+   * no tip has to be drawn. Built the first time it is asked for, so a scene
+   * that never draws it never carries it.
    */
-  restingY() {
-    const tail = this.tailFor(this.size.width);
-    const top = this.o.layout.stage?.reserveTop ?? 0;
-    const centred = top + this.availableHeight() / 2 - tail / 2;
+  drawRibbon(head, tail) {
+    const {width, height} = this.size;
+    const reveal = this.o.motion.reveal;
+    if (!this.ribbon) {
+      const points = [];
+      for (let i = 0; i < RIBBON_POINTS; i++) {
+        points.push(new Point(0, 0));
+      }
+      const glow = new MeshRope({
+        texture: makeCometTexture(reveal.beamGlowWidth * 3),
+        points,
+      });
+      glow.blendMode = 'add';
+      const core = new MeshRope({
+        texture: makeCometTexture(reveal.beamWidth * 3),
+        points,
+      });
+      this.turn.addChild(glow, core);
+      this.ribbon = {points, glow, core};
+    }
+    const {points, glow, core} = this.ribbon;
+    const last = points.length - 1;
+    for (let i = 0; i <= last; i++) {
+      const p = pointAt(this.beamPath, head - tail * (1 - i / last));
+      points[i].set(p.x - width / 2, p.y - height / 2);
+    }
+    glow.tint = this.colors.glow;
+    glow.alpha = Math.min(1, reveal.beamGlowAlpha * 2);
+    core.tint = this.colors.beam;
+    core.alpha = reveal.beamAlpha;
+    glow.visible = true;
+    core.visible = true;
+  }
 
-    return Math.min(centred, this.screen.height / 2 - tail / 2);
+  hideRibbon() {
+    if (this.ribbon) {
+      this.ribbon.glow.visible = false;
+      this.ribbon.core.visible = false;
+    }
+  }
+
+  /** Where the card settles — see `restFor`; on the host's box's bottom edge when it gave one. */
+  restingY() {
+    const box = this.o.rest?.card;
+    if (box) return box.top + box.height - this.size.height / 2;
+    return restFor(this.size.width, this.screen, this.o);
   }
 
   /** Where the card came to rest, so React Native can build its UI around it. */
@@ -389,17 +484,24 @@ export class RevealCard {
 
     const p = clamp((t - this.o.motion.open.cardFrom) / (1 - this.o.motion.open.cardFrom), 0, 1);
     const eased = easeOut(p);
-    this.node.y = this.fromY + (this.toY - this.fromY) * eased;
+    const target = this.spinY ?? this.toY;
+    this.node.y = this.fromY + (target - this.fromY) * eased;
   }
 
   reveal(kind, t) {
     const {height} = this.size;
     const reveal = this.o.motion.reveal;
 
-    if (kind === 'spin') {
+    if (kind === 'spin' || kind === 'spinHold') {
       // Eased, so the turn picks up from the slide-out and settles into the wipe
-      // instead of starting and stopping at full speed
-      const angle = Math.PI * 2 * reveal.spinTurns * easeInOut(t);
+      // instead of starting and stopping at full speed. The hold — artwork
+      // still on its way — keeps turning at one steady speed instead: a whole
+      // turn per hold, so it can run on for as many holds as it takes with no
+      // stop between them, and end square, where the unveil picks up
+      const angle =
+        kind === 'spin'
+          ? Math.PI * 2 * reveal.spinTurns * easeInOut(t)
+          : Math.PI * 2 * t;
       const cos = Math.cos(angle);
       const flat = Math.max(Math.abs(cos), reveal.spinFlatness);
       // Scale alone reads as a turn; skewing on top of it looks like the card
@@ -423,6 +525,10 @@ export class RevealCard {
       this.face.alpha = 1;
 
       const eased = easeInOut(t);
+      // A card that turned where the pack was rises onto its stand with the wipe
+      if (this.lifts) {
+        this.node.y = this.spinY + (this.toY - this.spinY) * eased;
+      }
       this.drawBackMask(1 - eased);
       // Sparks ride the wipe edge, which is the top of what the back still
       // covers: `height / 2 - covered`. Measuring them from the opposite edge
@@ -439,6 +545,35 @@ export class RevealCard {
       this.drawSparks(0, 0);
       this.drawBeam(eased, eased);
       this.halo.alpha = eased * reveal.haloAlpha;
+      return;
+    }
+
+    if (kind === 'flip') {
+      // Half a turn: face down going in, edge-on at the middle, the artwork
+      // facing out past it. The back is only ever seen on the way in, so the
+      // blank is dropped the frame the edge passes and never wiped
+      const eased = easeInOut(t);
+      const angle = Math.PI * eased;
+      const cos = Math.cos(angle);
+      const flat = Math.max(Math.abs(cos), reveal.spinFlatness);
+      // The scene brings the card in (`setAlpha`); the flip only turns it
+      this.node.y = this.toY;
+      this.turn.scale.x = flat;
+      this.turn.mask = null;
+      const past = cos < 0;
+      this.face.alpha = past ? 1 : 0;
+      this.drawBackMask(past ? 0 : 1);
+      const shade = 1 - reveal.spinShade + reveal.spinShade * Math.abs(cos);
+      const tint = Math.round(255 * shade);
+      this.back.tint = (tint << 16) | (tint << 8) | tint;
+      this.rim.alpha = reveal.rimAlpha;
+      this.rim.scale.x = this.rim.baseScaleX * flat;
+      // The halo comes up with the artwork, and swells as the card lands
+      const landing = clamp((t - 0.5) * 2, 0, 1);
+      this.halo.alpha = reveal.haloAlpha * landing;
+      this.bloom.alpha = reveal.bloomAlpha * (1 - eased);
+      this.pulse(Math.sin(Math.PI * landing) * 0.6);
+      this.drawSparks(0, 0);
       return;
     }
 
@@ -466,6 +601,7 @@ export class RevealCard {
     this.back.tint = 0xffffff;
     this.sparks.clear();
     this.beam.clear();
+    this.hideRibbon();
     this.face.alpha = 0;
     this.drawBackMask(1);
   }
@@ -474,13 +610,24 @@ export class RevealCard {
    * Parked just below the lip, so the card starts out of sight inside the
    * wrapper and the clip alone decides how much of it shows.
    */
-  park(cutY) {
+  park(cutY, rect) {
     this.fromY = cutY + this.size.height / 2;
     this.node.y = this.fromY;
     this.node.alpha = 1;
     this.toY = this.restingY();
+    // Where the card turns: at rest, or where the pack was — then it lifts
+    // onto its stand during the unveil (see `reveal`)
+    this.spinY =
+      this.o.layout.card.spinAt === 'pack' && rect
+        ? rect.top + rect.height / 2
+        : this.toY;
     this.turn.mask = this.clipG;
     this.clip(cutY);
+  }
+
+  /** Whether the card still has to rise onto its stand after the spin. */
+  get lifts() {
+    return this.spinY !== undefined && this.spinY !== this.toY;
   }
 
   /**
@@ -515,6 +662,7 @@ export class RevealCard {
     this.drawBackMask(0);
     this.sparks.clear();
     this.beam.clear();
+    this.hideRibbon();
   }
 
   /**
@@ -569,10 +717,22 @@ export class RevealCard {
     this.node.scale.set(value);
   }
 
-  /** Dropped whole before a rebuild bakes the options into new textures. */
+  /**
+   * Dropped whole before a rebuild bakes the options into new textures. The
+   * ribbon's textures are ours to free, but only once the ropes are gone — a
+   * destroyed mesh has let go of its texture, so the references are taken
+   * first and released last.
+   */
   destroy() {
+    const textures = this.ribbon
+      ? [this.ribbon.glow.texture, this.ribbon.core.texture]
+      : [];
+    this.ribbon = null;
     this.node?.destroy({children: true});
     this.clipG?.destroy();
+    for (const texture of textures) {
+      texture?.destroy(true);
+    }
     this.node = null;
   }
 }

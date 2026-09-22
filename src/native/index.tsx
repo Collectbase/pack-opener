@@ -40,6 +40,8 @@ export type HapticIntent = 'light' | 'heavy' | 'success';
 export interface PackOpenerHandle {
   /** Cut the pack without a gesture — for a "tap to open" fallback. */
   autoSlice: () => void;
+  /** Mix the choice up — the carousel's ring spins on; a no-op for the other mechanics. */
+  shuffle: () => void;
   /** Put the pack back together and rearm the swipe. */
   reset: () => void;
 }
@@ -153,6 +155,7 @@ const PackOpener = forwardRef<PackOpenerHandle, PackOpenerProps>(
       ref,
       () => ({
         autoSlice: () => send(`${COMMANDS.AUTO_SLICE}()`),
+        shuffle: () => send(`${COMMANDS.SHUFFLE}()`),
         reset: () => {
           setCutting(false);
           setCardRect(null);

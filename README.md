@@ -26,7 +26,8 @@ const opener = await createPackOpener(document.querySelector('#stage'), {
   onEvent: event => console.log(event.type, event),
 });
 
-opener.autoSlice();   // cut it without a gesture
+opener.autoSlice();   // open it without a gesture
+opener.shuffle();     // carousel: spin the ring on
 opener.reset();       // put it back together
 opener.setOptions({assets: {pack: {url}}, motion: {speed: 2}});   // retune live
 opener.destroy();
@@ -71,7 +72,8 @@ import PackOpener from 'pack-opener-js/native';
 />;
 ```
 
-`ref` exposes `autoSlice()` and `reset()`; `disabled` covers ignoring input.
+`ref` exposes `autoSlice()`, `shuffle()` and `reset()`; `disabled` covers
+ignoring input.
 
 The host owns everything around the animation. The package plays no haptics and
 ships no typography: it reports intents (`light` / `heavy` / `success`) and
@@ -98,20 +100,22 @@ Anything left out falls back to the chosen preset, field by field: a `theme`
 with only `glow` set keeps the preset's card colours. `PackOpenerOptions` is the
 full, commented surface — in short:
 
-A hundred fields in eight groups — enough to build a noticeably different
+A hundred-odd fields in nine groups — enough to build a noticeably different
 ceremony out of the same mechanic:
 
 | Group | What it covers |
 | --- | --- |
-| `variant` | Which animation mechanic runs: `slice` or `burst`. |
-| `preset` | Named set of numbers for that mechanic: `classic` for `slice`, `charged` for `burst`. |
-| `assets` | Pack and card artwork, and how long to wait for the card. |
+| `variant` | Which animation mechanic runs: `slice`, `burst` or `carousel`. |
+| `preset` | Named set of numbers for that mechanic: `classic` for `slice`, `charged` for `burst`, `showcase` for `carousel`. |
+| `assets` | Pack and card artwork, how long to wait for the card, and — for `carousel` — the card's `facts` (`{label, value}` pairs) and its tier `badge` (`{label, color}`), which it tells before the card is shown. |
 | `theme` | Background, rarity glow, rim, bloom, beam, sparks, hint, the four card-back colours, corner radius. |
 | `motion` | Every duration, plus `speed` as one multiplier over all of them. How the lid is thrown, tumbled and faded; how far the emptied wrapper sinks; how the card turns, how thin it goes edge-on, how it is shaded; the beam's width, glow, tip and tail; the sparks' size, scatter and opacity; the opacity of all three glows. |
 | `interaction` | **`slice` only.** What counts as a swipe: activation distance, commit fraction, trail sampling, cut gap and raggedness, the band it may travel through, how the blade runs out, how often progress is reported, and the arc a programmatic cut follows. |
 | `layout` | Where the pack sits and how much of the stage it takes; the card's size and widest allowed ratio; the size and softness of the three glows. |
+| `rest` | Where the revealed card and its stand come to rest, given outright in css px (`card` box, `pedestal` left/width/bottom) — for a host whose own layout decides; absent, `layout` decides. |
 | `hint` | **`slice` only.** The comet that mimes the swipe: position, sweep, head, tail, tail opacity and falloff, cadence. |
 | `charge` | **`burst` only.** How long a full charge takes and how fast it bleeds away; the shudder and squeeze of a pressured pack; the heat, halo, bloom and progress arc it lights up with; the sparks pulled in from outside; the breath of an untouched pack. |
+| `carousel` | **`carousel` only.** The ring: how many copies, its radius, how far they turn with it and how they gather toward the front, the lens and the eye's height, how a copy fades and shades as it turns away, the hover; the idle drift, the shuffle, the finger's turn and the settle; the drop, the rise and how large the held pack grows; the float; the dissolve, the pacing of the facts, the banner's slide, hold and tilt, the flip; the floor reflection. |
 | `burst` | **`burst` only.** The blast: flash, the grid the foil is torn into and how uneven that cut is, when the shards start burning as sparks and when they fade, plus the spikes, shock rings, debris streaks and glitter thrown off with them. Then the beat of quiet, and the card's arrival: the dust cloud, the grid the artwork is cut into, how far out its pieces start and how they are staggered, when the finished card comes up underneath them, the landing push and the ring that goes out with it. |
 | `performance` | Frame caps for moving, idling and sleeping; ceiling on the device pixel ratio; multisampling. |
 
@@ -129,7 +133,7 @@ host cannot spend an afternoon tuning knobs the running scene never reads.
 number in it was measured against the reference recording, so it is the baseline
 other presets are judged against.
 
-## The two mechanics
+## The three mechanics
 
 **`slice`** — the seal is cut with a finger. The cut follows the trail, the lid
 tears away, the emptied wrapper sinks and the card slides out past the lip. It
@@ -153,11 +157,27 @@ torn along points both of its cells share. Pieces that interlock are what let
 the wrapper look whole until it bursts and the card arrive as a card rather
 than as a grid with gaps in it.
 
-The two mechanics share no part of their finish, on purpose: a second animation
+**`carousel`** — copies of the pack stand on a turntable, each turned with
+the ring and facing out, seen from in front and a little above and mirrored
+in the floor: the front one lit, the ones beside it turned away in
+perspective, the two round the back seen from behind between them. A shuffle spins the ring round,
+settles it on another copy and chooses it; a finger turns it, and let go it
+coasts and settles on the nearest. A tap on a copy chooses it too: it drops off the ring as its neighbours fade and rises alone to
+centre stage, where it floats until it is tapped again — the host opens the
+pack server-side in between, and the float lasts as long as that takes,
+nothing looping. The second tap dissolves the pack and the pull is told
+before it is shown: its facts fade in one under the other, then a pill in the
+tier's colour, and for a tier worth shouting about a banner slides across the
+stage with the tier's name running along it. Then the blank card flips over
+into the artwork. It asks for nothing but a choice, and the telling is the
+point: the reveal is read before it is seen.
+
+The mechanics share no part of their finish, on purpose: a second animation
 that ends in the same spinning card back is not a second animation. `slice`
 turns the card over and runs a beam around it; `burst` tears the wrapper into
-pieces and then builds the card out of pieces. What they do share is the card
-object and the events, so a host swaps one for the other with a single option
+pieces and then builds the card out of pieces; `carousel` tells the card in
+words and then flips it over. What they do share is the card object, its
+stand and the events, so a host swaps one for another with a single option
 and changes nothing else.
 
 Three numbers in `charged` carry most of its feel: `charge.holdMs`, the length
@@ -193,11 +213,14 @@ down further on low-end phones.
 Both hosts see the same sequence, as callbacks on the web and as props on React
 Native: the gesture starts, the pack commits to being cut, the lid comes off
 (`onOpenComplete` — the moment to call an open API, the reveal that follows buys
-the request its time), and the whole ceremony ends (`onRevealComplete`).
+the request its time), and the whole ceremony ends (`onRevealComplete`). The
+carousel commits on the first tap and opens on the second, so a host that
+wants the open API called at the commit — and its facts and badge passed in
+with `setOptions` before the second tap — has the whole float to do it in.
 
 ## Requirements
 
-- **Web**: `pixi.js` ^8 and a WebGL-capable browser. `react` ^18 or ^19 for the
+- **Web**: `pixi.js` ^8 (≥ 8.3 for `carousel`, which draws its ring with `PerspectiveMesh`) and a WebGL-capable browser. `react` ^18 or ^19 for the
   `/react` entry.
 - **React Native**: 0.79 or newer (the package is resolved through `exports`),
   plus `react-native-webview` and `react-native-reanimated`. Pixi is *not*
@@ -259,6 +282,8 @@ src/core/        the engine: createPackOpener(element, options) → handle
     slice/       cut the seal: declaration, presets, scene, wrapper, hint
     burst/       charge and detonate: declaration, presets, scene, pack,
                  shreds, and the card assembled out of particles
+    carousel/    choose and be told: declaration, presets, scene, the ring
+                 of copies (turntable) and the story told in text
 src/react/       React component for the web, over the engine
 src/native/      React Native wrapper: WebView + bridge + geometry-driven slots
   webviewEntry.js  what gets bundled: engine + bridge

@@ -17,6 +17,42 @@ function makeCanvas(w, h) {
   return {canvas, ctx};
 }
 
+/**
+ * The beam as one piece: a streak that builds up towards its head, ends in a
+ * rounded nose and fades across its width, for a `MeshRope` to lay along the
+ * card's outline. Drawn white for the caller to tint. `width` is the streak's
+ * thickness in css px; it is rasterised at 1× on purpose — the softness is
+ * the point.
+ */
+export function makeCometTexture(width) {
+  const length = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = length;
+  canvas.height = Math.max(2, Math.ceil(width));
+  const ctx = canvas.getContext('2d');
+  const image = ctx.createImageData(canvas.width, canvas.height);
+  const data = image.data;
+  const half = canvas.height / 2;
+  const sigma = canvas.height / 4.5;
+  for (let y = 0; y < canvas.height; y++) {
+    const d = (y + 0.5 - half) / sigma;
+    const across = Math.exp(-d * d * 0.5);
+    for (let x = 0; x < length; x++) {
+      const t = (x + 0.5) / length;
+      const rise = t * t;
+      const nose = t > 0.94 ? 1 - Math.pow((t - 0.94) / 0.06, 2) : 1;
+      const alpha = Math.max(0, Math.min(1, rise * nose * across));
+      const i = (y * length + x) * 4;
+      data[i] = 255;
+      data[i + 1] = 255;
+      data[i + 2] = 255;
+      data[i + 3] = Math.round(alpha * 255);
+    }
+  }
+  ctx.putImageData(image, 0, 0);
+  return Texture.from(canvas);
+}
+
 /** `ctx.roundRect` is missing on older WebViews. */
 function roundRectPath(ctx, x, y, w, h, r) {
   const radius = Math.max(0, Math.min(r, Math.min(w, h) / 2));

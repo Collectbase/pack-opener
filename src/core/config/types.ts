@@ -6,9 +6,9 @@
  * module), `preset` picks a set of numbers for that mechanic. New styles arrive
  * as new variants, new looks as new presets — neither changes this shape.
  */
-export type VariantName = 'slice' | 'burst';
+export type VariantName = 'slice' | 'burst' | 'carousel';
 
-export type PresetName = 'classic' | 'charged';
+export type PresetName = 'classic' | 'charged' | 'showcase';
 
 /** Colour in any CSS form the scene can parse: `#rgb`, `#rrggbb`, `rgba(...)`. */
 export type Color = string;
@@ -21,6 +21,22 @@ export interface AssetOptions {
     url?: string;
     /** Give up waiting for the artwork and finish the reveal without it. */
     timeoutMs?: number;
+    /**
+     * What the card is, for a mechanic that says it before showing it
+     * (`carousel` lists them one by one before the flip). Each is a label
+     * and a value — `{label: 'Year', value: '2000'}` — in the order to show;
+     * left out or empty, the mechanic skips straight to the flip. The host
+     * usually only knows them once the backend has opened the pack, so they
+     * tend to arrive through `setOptions` mid-ceremony, which is fine: they
+     * are read when their moment comes, not when the scene is built.
+     */
+    facts?: {label: string; value: string}[];
+    /**
+     * The pull's tier, shouted on a banner across the card before the flip
+     * (`carousel`). Left out, there is no banner — the tier is not one worth
+     * shouting about. `color` is the banner's fill, usually the tier's colour.
+     */
+    badge?: {label: string; color?: Color};
   };
   /**
    * Stand the revealed card is shown above. Left out, the scene uses the one
@@ -123,6 +139,14 @@ export interface MotionOptions {
     beamTipRadius?: number;
     /** Segments the beam is drawn with, and corner detail of the path it runs. */
     beamSteps?: number;
+    /**
+     * How the beam is drawn. `segments` strokes it as short round-capped lines,
+     * which read as a dotted trail once the card is large — a desktop stage.
+     * `ribbon` lays one soft gradient along the outline, continuous at any
+     * size. `segments` stays the default, so a host that has not asked for the
+     * ribbon draws exactly what it drew before.
+     */
+    beamStyle?: 'segments' | 'ribbon';
     outlineDetail?: number;
     /** Sparks thrown by the wipe: base size, extra size from jitter, opacity. */
     sparkSize?: number;
@@ -188,25 +212,35 @@ export interface InteractionOptions {
 export interface LayoutOptions {
   /**
    * Bands of the stage the host keeps for its own UI — a title above the card,
-   * buttons below it. The card and its stand are centred in what is left and
-   * shrink to fit it, instead of sliding under whatever the host draws there.
-   * In css px; the pack is not affected, it is gone by the time they matter.
+   * buttons below it. The pack, and later the card with its stand, are centred
+   * in what is left and shrink to fit it, instead of sliding under whatever
+   * the host draws there. In css px.
    */
   stage?: {
     reserveTop?: number;
     reserveBottom?: number;
   };
-  /** Where the pack sits and how much of the stage it takes. */
+  /**
+   * Where the pack sits and how much of the stage it takes. `anchor: 'card'`
+   * places the pack where the card will come to rest, so the cut does not
+   * hoist the card up out of the pack's place; `stage` (the default) centres
+   * it on the stage — or on the band the host left free — nudged by `offsetY`.
+   */
   pack?: {
     /** Caps against the stage; the artwork's own aspect decides the rest. */
     widthRatio?: number;
     heightRatio?: number;
     /** Nudge down from the centre, in stage heights — leaves room for a hint. */
     offsetY?: number;
+    anchor?: 'stage' | 'card';
   };
   /**
    * Card size relative to the pack. It has to read as something that came out
    * of the wrapper, so the width is capped against the pack, not the screen.
+   * `spinAt: 'pack'` keeps the card where the pack was while it turns and
+   * lifts it onto its stand as the artwork is unveiled; `rest` (the default)
+   * slides it straight to its resting place. Slice only — burst assembles the
+   * card at rest either way.
    * The aspect ratio is always kept — the cap moves both sides.
    */
   card?: {
@@ -216,6 +250,7 @@ export interface LayoutOptions {
     aspect?: number;
     /** Widest the card may get, whatever the artwork's ratio says. */
     maxRatio?: number;
+    spinAt?: 'rest' | 'pack';
   };
   /**
    * The stand under the revealed card. The card hangs above it rather than
@@ -484,6 +519,126 @@ export interface BurstOptions {
 
 }
 
+/**
+ * `carousel` only: copies of the pack on a turntable, one of them tapped,
+ * lifted and opened by being talked about — its facts, its tier — before it
+ * flips into the card.
+ */
+export interface CarouselOptions {
+  /** How many copies of the pack stand on the turntable. */
+  copies?: number;
+  /** Radius of the turntable, in pack widths: how far the copies stand from its axis. */
+  radius?: number;
+  /**
+   * How the copies gather toward the front of the ring. 0 spaces them
+   * evenly round it; more crowds the ones in view together, so the copies
+   * either side of the front one turn less away from the viewer and show
+   * wider, while the spacing round the back — where nothing is seen — opens
+   * up to make room. Below 1.
+   */
+  gather?: number;
+  /**
+   * How far a copy turns to follow the ring: 1 stands it tangent, facing
+   * straight out; less keeps it turned a little toward the viewer, so the
+   * copies either side of the front one show more of their face.
+   */
+  turn?: number;
+  /**
+   * The eye's distance from the front copy, in pack widths: the perspective.
+   * Short is a wide lens, the ring's far side small and the near copies
+   * looming; long flattens it toward a row.
+   */
+  focal?: number;
+  /**
+   * How high the eye is above the floor the copies stand on, in pack
+   * heights. Higher looks down onto the turntable more: the far copies'
+   * feet climb the stage and the reflection is seen more from above.
+   */
+  eye?: number;
+  /**
+   * A copy edge-on is a flickering sliver: it is faded out over this share
+   * of its full width either side of edge-on, and seen from behind past it.
+   */
+  fade?: number;
+  /** How dark a copy gets as it turns away from the light on the front (0..1): the ones round the back get all of it. */
+  shade?: number;
+  /**
+   * The copies hover: each rises and sinks a little on its own beat, in
+   * pack heights and ms per beat. 0 amplitude stands them still.
+   */
+  hoverAmp?: number;
+  hoverMs?: number;
+  /** The turntable's idle drift, degrees per second; 0 stands still. */
+  driftDps?: number;
+  /**
+   * A shuffle: the turntable spins this many extra turns and settles with a
+   * different copy in front, over `shuffleMs`.
+   */
+  shuffleTurns?: number;
+  shuffleMs?: number;
+  /**
+   * The finger turning the ring: how far it turns, in whole turns, for a
+   * drag across one pack width; and how long it takes to settle on the
+   * nearest copy once let go, coasting with the drag's momentum first.
+   */
+  dragTurn?: number;
+  settleMs?: number;
+  /** The tapped copy's fall off the turntable, and its neighbours fading out. */
+  dropMs?: number;
+  /** The chosen pack rising to centre stage, grown to this share of its stage size. */
+  riseMs?: number;
+  riseScale?: number;
+  /** The pack floats while it waits for the second tap: bob amplitude (pack heights) and period. */
+  floatAmp?: number;
+  floatMs?: number;
+  /** The pack dissolving once tapped, before the facts. */
+  dissolveMs?: number;
+  /** Each fact fading in, and the pause before the next. */
+  factMs?: number;
+  factGapMs?: number;
+  /** The banner: its slide across, and how long it stays before the flip. */
+  bannerMs?: number;
+  bannerHoldMs?: number;
+  /** The banner's tilt across the stage, in degrees. */
+  bannerTilt?: number;
+  /** The flip from the blank back to the card, and its landing pulse. */
+  flipMs?: number;
+  /** The floor's reflection of the packs: how strong, and how tall (pack heights). */
+  reflectionAlpha?: number;
+  reflectionHeight?: number;
+  /** Floor showing between a pack and its reflection, in pack heights. */
+  reflectionGap?: number;
+}
+
+/** A box on the stage, in css px. */
+export interface StageRect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Where the revealed card and its stand come to rest, given outright — for
+ * a host that lays its own chrome out around the card in the DOM and wants
+ * the scene's card exactly where its own would be, whatever the layout's
+ * rules would have worked out. Optional; without it the card rests where
+ * `layout` puts it.
+ */
+export interface RestOptions {
+  /**
+   * The card's box. The artwork is fitted into it the way a contained image
+   * is: by height when it is narrower than the box, by width when wider,
+   * centred across and set on the box's bottom edge.
+   */
+  card?: StageRect;
+  /**
+   * The stand: where its bottom edge sits, how wide it is, and its left
+   * edge. Its height follows its artwork's own ratio, as an image's would.
+   */
+  pedestal?: {left: number; width: number; bottom: number};
+}
+
 export interface PackOpenerOptions {
   variant?: VariantName;
   preset?: PresetName;
@@ -492,10 +647,12 @@ export interface PackOpenerOptions {
   motion?: MotionOptions;
   interaction?: InteractionOptions;
   layout?: LayoutOptions;
+  rest?: RestOptions;
   hint?: HintOptions;
   performance?: PerformanceOptions;
   charge?: ChargeOptions;
   burst?: BurstOptions;
+  carousel?: CarouselOptions;
 }
 
 /** Every field filled in — what the scene actually runs on. */
@@ -512,13 +669,30 @@ export type Resolved<T> = {
  * animation it is not.
  */
 /** Groups that belong to one mechanic rather than to every scene. */
-type VariantGroups = 'interaction' | 'hint' | 'charge' | 'burst';
+type VariantGroups = 'interaction' | 'hint' | 'charge' | 'burst' | 'carousel';
 
 export type ResolvedOptions = Resolved<
-  Required<Omit<PackOpenerOptions, VariantGroups>>
+  Required<Omit<PackOpenerOptions, VariantGroups | 'assets' | 'rest'>>
 > & {
+  /** Given by the host or not at all: nothing to fill in. */
+  rest?: RestOptions;
+  /**
+   * Assets keep their optional facts and badge: they are the pull's, not the
+   * scene's, and a pull may have none.
+   */
+  assets: {
+    pack: {url: string};
+    card: {
+      url: string;
+      timeoutMs: number;
+      facts: {label: string; value: string}[];
+      badge?: {label: string; color: Color};
+    };
+    pedestal: {url: string};
+  };
   interaction?: Resolved<InteractionOptions>;
   hint?: Resolved<HintOptions>;
   charge?: Resolved<ChargeOptions>;
   burst?: Resolved<BurstOptions>;
+  carousel?: Resolved<CarouselOptions>;
 };

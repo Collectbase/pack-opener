@@ -72,6 +72,7 @@ export const PRESETS: Record<
         beamGlowAlpha: 0.34,
         beamTipRadius: 8,
         beamSteps: 24,
+        beamStyle: 'segments',
         outlineDetail: 9,
         sparkSize: 1.3,
         sparkJitter: 2.4,
@@ -116,12 +117,14 @@ export const PRESETS: Record<
         widthRatio: 0.86,
         heightRatio: 0.66,
         offsetY: 0.07,
+        anchor: 'stage',
       },
       card: {
         heightRatio: 0.95,
         packWidthRatio: 0.64,
         aspect: 0.66,
         maxRatio: 0.8,
+        spinAt: 'rest',
       },
       pedestal: {
         widthRatio: 1.15,

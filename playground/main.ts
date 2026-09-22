@@ -11,7 +11,29 @@ type Control =
   | {kind: 'range'; path: string; label: string; min: number; max: number; step: number}
   | {kind: 'color'; path: string; label: string}
   | {kind: 'text'; path: string; label: string}
+  | {
+      kind: 'plain';
+      path: string;
+      label: string;
+      placeholder: string;
+      parse: (raw: string) => unknown;
+      format: (value: unknown) => string;
+    }
   | {kind: 'select'; path: string; label: string; options: string[]};
+
+/** "Year: 2000, Grade: BGS 9.5" ⇄ the card's facts. */
+const parseFacts = (raw: string) =>
+  raw
+    .split(',')
+    .map(pair => {
+      const [label, ...rest] = pair.split(':');
+      return {label: label.trim(), value: rest.join(':').trim()};
+    })
+    .filter(fact => fact.label && fact.value);
+const formatFacts = (value: unknown) =>
+  Array.isArray(value)
+    ? value.map((fact: {label: string; value: string}) => `${fact.label}: ${fact.value}`).join(', ')
+    : '';
 
 /**
  * `variants` marks a group as belonging to one mechanic: its numbers mean
@@ -22,7 +44,7 @@ const GROUPS: {title: string; variants?: string[]; controls: Control[]}[] = [
   {
     title: 'Mechanic',
     controls: [
-      {kind: 'select', path: 'variant', label: 'Variant', options: ['slice', 'burst']},
+      {kind: 'select', path: 'variant', label: 'Variant', options: ['slice', 'burst', 'carousel']},
     ],
   },
   {
@@ -50,6 +72,7 @@ const GROUPS: {title: string; variants?: string[]; controls: Control[]}[] = [
       {kind: 'range', path: 'motion.reveal.unveilMs', label: 'Unveil, ms', min: 100, max: 2000, step: 50},
       {kind: 'range', path: 'motion.reveal.beamMs', label: 'Beam, ms', min: 100, max: 2500, step: 50},
       {kind: 'range', path: 'motion.reveal.sparks', label: 'Sparks', min: 0, max: 80, step: 1},
+      {kind: 'select', path: 'motion.reveal.beamStyle', label: 'Beam style', options: ['segments', 'ribbon']},
     ],
   },
   {
@@ -111,6 +134,10 @@ const GROUPS: {title: string; variants?: string[]; controls: Control[]}[] = [
   {
     title: 'Layout',
     controls: [
+      {kind: 'range', path: 'layout.stage.reserveTop', label: 'Kept for the host, top, px', min: 0, max: 400, step: 4},
+      {kind: 'range', path: 'layout.stage.reserveBottom', label: 'Kept for the host, bottom, px', min: 0, max: 400, step: 4},
+      {kind: 'select', path: 'layout.pack.anchor', label: 'Pack sits', options: ['stage', 'card']},
+      {kind: 'select', path: 'layout.card.spinAt', label: 'Card turns at', options: ['rest', 'pack']},
       {kind: 'range', path: 'layout.pack.widthRatio', label: 'Pack width / stage', min: 0.3, max: 1, step: 0.01},
       {kind: 'range', path: 'layout.pack.heightRatio', label: 'Pack height / stage', min: 0.3, max: 1, step: 0.01},
       {kind: 'range', path: 'layout.pack.offsetY', label: 'Pack offset down', min: -0.3, max: 0.3, step: 0.01},
@@ -256,7 +283,69 @@ const BURST_GROUPS: {title: string; variants?: string[]; controls: Control[]}[] 
   },
 ];
 
-GROUPS.push(...BURST_GROUPS);
+const CAROUSEL_GROUPS: {title: string; variants?: string[]; controls: Control[]}[] = [
+  {
+    title: 'Carousel',
+    variants: ['carousel'],
+    controls: [
+      {kind: 'range', path: 'carousel.copies', label: 'Copies on the ring', min: 1, max: 9, step: 1},
+      {kind: 'range', path: 'carousel.radius', label: 'Radius, pack widths', min: 0.5, max: 2.5, step: 0.05},
+      {kind: 'range', path: 'carousel.gather', label: 'Gathered to the front', min: 0, max: 0.9, step: 0.01},
+      {kind: 'range', path: 'carousel.turn', label: 'Copies turn with the ring', min: 0, max: 1.2, step: 0.01},
+      {kind: 'range', path: 'carousel.focal', label: 'Lens, pack widths', min: 1, max: 8, step: 0.1},
+      {kind: 'range', path: 'carousel.eye', label: 'Eye height, pack heights', min: 0, max: 1.5, step: 0.01},
+      {kind: 'range', path: 'carousel.fade', label: 'Edge-on fade', min: 0.05, max: 1, step: 0.01},
+      {kind: 'range', path: 'carousel.shade', label: 'Turned-away shade', min: 0, max: 1, step: 0.01},
+      {kind: 'range', path: 'carousel.hoverAmp', label: 'Hover, pack heights', min: 0, max: 0.1, step: 0.005},
+      {kind: 'range', path: 'carousel.hoverMs', label: 'Hover beat, ms', min: 800, max: 8000, step: 100},
+      {kind: 'range', path: 'carousel.driftDps', label: 'Idle drift, °/s', min: 0, max: 30, step: 0.5},
+      {kind: 'range', path: 'carousel.shuffleTurns', label: 'Shuffle, whole turns', min: 0, max: 3, step: 1},
+      {kind: 'range', path: 'carousel.shuffleMs', label: 'Shuffle, ms', min: 300, max: 4000, step: 50},
+      {kind: 'range', path: 'carousel.dragTurn', label: 'Drag: turns per pack width', min: 0.05, max: 0.6, step: 0.01},
+      {kind: 'range', path: 'carousel.settleMs', label: 'Settle, ms', min: 100, max: 2000, step: 10},
+      {kind: 'range', path: 'carousel.dropMs', label: 'Drop, ms', min: 60, max: 1000, step: 10},
+      {kind: 'range', path: 'carousel.riseMs', label: 'Rise, ms', min: 100, max: 1500, step: 10},
+      {kind: 'range', path: 'carousel.riseScale', label: 'Held pack grows to', min: 1, max: 3.5, step: 0.05},
+      {kind: 'range', path: 'carousel.floatAmp', label: 'Float bob', min: 0, max: 0.05, step: 0.001},
+      {kind: 'range', path: 'carousel.floatMs', label: 'Float bob, ms', min: 800, max: 6000, step: 100},
+      {kind: 'range', path: 'carousel.reflectionAlpha', label: 'Floor reflection', min: 0, max: 1, step: 0.02},
+      {kind: 'range', path: 'carousel.reflectionHeight', label: 'Reflection height', min: 0, max: 1, step: 0.05},
+      {kind: 'range', path: 'carousel.reflectionGap', label: 'Reflection gap, pack heights', min: 0, max: 0.3, step: 0.005},
+    ],
+  },
+  {
+    title: 'Story',
+    variants: ['carousel'],
+    controls: [
+      {
+        kind: 'plain',
+        path: 'assets.card.facts',
+        label: 'Facts',
+        placeholder: 'Year: 2000, Category: Football, Grade: BGS 9.5',
+        parse: parseFacts,
+        format: formatFacts,
+      },
+      {
+        kind: 'plain',
+        path: 'assets.card.badge.label',
+        label: 'Tier badge (empty = none)',
+        placeholder: 'Mythic',
+        parse: raw => raw.trim() || undefined,
+        format: value => (value == null ? '' : String(value)),
+      },
+      {kind: 'color', path: 'assets.card.badge.color', label: 'Badge colour'},
+      {kind: 'range', path: 'carousel.dissolveMs', label: 'Pack dissolves, ms', min: 100, max: 1500, step: 10},
+      {kind: 'range', path: 'carousel.factMs', label: 'A fact fades in, ms', min: 100, max: 1500, step: 10},
+      {kind: 'range', path: 'carousel.factGapMs', label: 'Between facts, ms', min: 0, max: 2000, step: 10},
+      {kind: 'range', path: 'carousel.bannerMs', label: 'Banner slides in, ms', min: 200, max: 2500, step: 10},
+      {kind: 'range', path: 'carousel.bannerHoldMs', label: 'Banner holds, ms', min: 0, max: 4000, step: 10},
+      {kind: 'range', path: 'carousel.bannerTilt', label: 'Banner tilt, °', min: -45, max: 45, step: 1},
+      {kind: 'range', path: 'carousel.flipMs', label: 'Flip, ms', min: 200, max: 2000, step: 10},
+    ],
+  },
+];
+
+GROUPS.push(...BURST_GROUPS, ...CAROUSEL_GROUPS);
 
 /** Stand-in artwork so the playground works with no assets at hand. */
 function placeholder(w: number, h: number, label: string, from: string, to: string) {
@@ -282,7 +371,19 @@ const DEFAULTS = {
 };
 
 const options: PackOpenerOptions = {
-  assets: {pack: {url: DEFAULTS.pack}, card: {url: DEFAULTS.card}},
+  assets: {
+    pack: {url: DEFAULTS.pack},
+    // A story for the carousel to tell; the other mechanics ignore it
+    card: {
+      url: DEFAULTS.card,
+      facts: [
+        {label: 'Year', value: '2000'},
+        {label: 'Category', value: 'Football'},
+        {label: 'Grade', value: 'BGS 9.5'},
+      ],
+      badge: {label: 'Mythic', color: '#f5d000'},
+    },
+  },
 };
 
 // The panel opens on the preset's own values, and each mechanic has its own
@@ -343,13 +444,18 @@ async function mount() {
 }
 
 // Applied to the running scene, so dragging a slider does not restart the
-// ceremony; if the change needs a new scene the engine says so and we remount.
+// ceremony; if the change needs a new scene the engine says so and we remount,
+// and if it is waiting on a reset (the ceremony has played out) we reset, so
+// every change is seen at once.
 let pending: number | undefined;
 const apply = () => {
   window.clearTimeout(pending);
   pending = window.setTimeout(() => {
-    if (!instance || !instance.setOptions(options)) {
+    const result = instance?.setOptions(options);
+    if (!instance || result === 'scene') {
       void mount();
+    } else if (result === 'deferred') {
+      instance.reset();
     }
   }, 120);
 };
@@ -388,7 +494,7 @@ function buildPanel() {
           set(control.path, input.value);
           // A mechanic brings its own preset and its own knobs, so the panel
           // is rebuilt around it rather than left offering the old ones
-          for (const key of ['interaction', 'hint', 'charge', 'burst']) {
+          for (const key of ['interaction', 'hint', 'charge', 'burst', 'carousel']) {
             delete (options as Record<string, unknown>)[key];
           }
           resolvedPreview = resolveOptions({
@@ -419,9 +525,20 @@ function buildPanel() {
       } else if (control.kind === 'color') {
         const input = document.createElement('input');
         input.type = 'color';
-        input.value = String(get(control.path) ?? resolvedDefault(control.path));
+        // A colour the preset does not set (the badge's) starts on the glow
+        input.value = String(get(control.path) ?? (resolvedDefault(control.path) || '#f5d000'));
         input.addEventListener('input', () => {
           set(control.path, input.value);
+          apply();
+        });
+        label.append(input);
+      } else if (control.kind === 'plain') {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = control.placeholder;
+        input.value = control.format(get(control.path));
+        input.addEventListener('change', () => {
+          set(control.path, control.parse(input.value));
           apply();
         });
         label.append(input);
@@ -455,6 +572,7 @@ function resolvedDefault(path: string): number | string {
 
 document.querySelector('#replay')!.addEventListener('click', () => instance?.reset());
 document.querySelector('#auto')!.addEventListener('click', () => instance?.autoSlice());
+document.querySelector('#shuffle')!.addEventListener('click', () => instance?.shuffle());
 
 buildPanel();
 mount();

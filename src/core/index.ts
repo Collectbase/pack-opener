@@ -2,7 +2,7 @@ import {Application, Assets, Texture} from 'pixi.js';
 import {DEFAULT_PEDESTAL_URI} from './variants/shared/defaultPedestal';
 import {MESSAGES} from './config/protocol';
 import {resolveOptions} from './config/resolve';
-import type {PackOpenerOptions} from './config/types';
+import type {PackOpenerOptions, ResolvedOptions} from './config/types';
 import {variantOf} from './variants';
 
 export interface PackOpenerEvent {
@@ -10,15 +10,84 @@ export interface PackOpenerEvent {
   [key: string]: unknown;
 }
 
+/**
+ * What became of a retune: `applied` on the spot; `deferred` — the scene is
+ * mid-ceremony or holding a revealed card, so the change waits for `reset()`;
+ * `scene` — a different variant or different pack artwork, which the host has
+ * to mount the animation again to see.
+ */
+export type SetOptionsResult = 'applied' | 'deferred' | 'scene';
+
+/** The `timeline` event's payload: phase lengths in ms, after `motion.speed`. */
+export type PackOpenerTimeline = Partial<
+  Record<
+    | 'spinMs'
+    | 'unveilMs'
+    | 'beamMs'
+    | 'holdMs'
+    | 'chargeHoldMs'
+    | 'releaseMs'
+    | 'beatMs'
+    | 'swarmMs'
+    | 'assembleMs'
+    | 'snapMs'
+    | 'shuffleMs'
+    | 'dropMs'
+    | 'riseMs'
+    | 'dissolveMs'
+    | 'factMs'
+    | 'factGapMs'
+    | 'bannerMs'
+    | 'bannerHoldMs'
+    | 'flipMs',
+    number
+  >
+>;
+
+/** The numbers a host scoring the ceremony needs, read off the resolved options. */
+function timelineOf(resolved: ResolvedOptions): PackOpenerTimeline {
+  const o = resolved as unknown as {
+    motion: {reveal: Record<string, unknown>};
+    charge?: Record<string, unknown>;
+    burst?: Record<string, unknown>;
+    carousel?: Record<string, unknown>;
+  };
+  const pick = (source: Record<string, unknown> | undefined, key: string) =>
+    typeof source?.[key] === 'number' ? (source[key] as number) : undefined;
+  const timeline: PackOpenerTimeline = {
+    spinMs: pick(o.motion.reveal, 'spinMs'),
+    unveilMs: pick(o.motion.reveal, 'unveilMs'),
+    beamMs: pick(o.motion.reveal, 'beamMs'),
+    holdMs: pick(o.motion.reveal, 'holdMs'),
+    chargeHoldMs: pick(o.charge, 'holdMs'),
+    releaseMs: pick(o.charge, 'releaseMs'),
+    beatMs: pick(o.burst, 'beatMs'),
+    swarmMs: pick(o.burst, 'swarmMs'),
+    assembleMs: pick(o.burst, 'assembleMs'),
+    snapMs: pick(o.burst, 'snapMs'),
+    shuffleMs: pick(o.carousel, 'shuffleMs'),
+    dropMs: pick(o.carousel, 'dropMs'),
+    riseMs: pick(o.carousel, 'riseMs'),
+    dissolveMs: pick(o.carousel, 'dissolveMs'),
+    factMs: pick(o.carousel, 'factMs'),
+    factGapMs: pick(o.carousel, 'factGapMs'),
+    bannerMs: pick(o.carousel, 'bannerMs'),
+    bannerHoldMs: pick(o.carousel, 'bannerHoldMs'),
+    flipMs: pick(o.carousel, 'flipMs'),
+  };
+  for (const key of Object.keys(timeline) as (keyof PackOpenerTimeline)[]) {
+    if (timeline[key] === undefined) delete timeline[key];
+  }
+  return timeline;
+}
+
 export interface PackOpenerInstance {
-  /**
-   * Retunes a running scene. Returns false when the change cannot be applied in
-   * place — a different variant, or different pack artwork — and the host has
-   * to mount the animation again to see it.
-   */
-  setOptions: (options: PackOpenerOptions) => boolean;
+  /** Retunes a running scene; see `SetOptionsResult` for what the answer means. */
+  setOptions: (options: PackOpenerOptions) => SetOptionsResult;
   /** Cut the pack without a gesture. */
   autoSlice: () => void;
+  /** Mix the choice up — the carousel's ring spins on. A no-op for a mechanic without one. */
+  shuffle: () => void;
   /** Put the pack back together and rearm the gesture. */
   reset: () => void;
   /** Ignore input without tearing the scene down. */
@@ -261,6 +330,7 @@ export async function createPackOpener(
     rect: scene.rect,
     renderer: app.renderer.name,
   });
+  emit(MESSAGES.TIMELINE, timelineOf(resolved));
 
   return {
     setOptions: (next: PackOpenerOptions) => {
@@ -272,7 +342,7 @@ export async function createPackOpener(
         nextResolved.assets.pack.url !== current.assets.pack.url ||
         !scene.setOptions
       ) {
-        return false;
+        return 'scene';
       }
 
       const nextBackground = nextResolved.theme.background;
@@ -291,13 +361,20 @@ export async function createPackOpener(
       }
 
       current = nextResolved;
-      scene.setOptions(nextResolved);
+      const live = scene.setOptions(nextResolved);
       wake();
-      return true;
+      // Phase lengths are read live even when the geometry waits for a reset
+      emit(MESSAGES.TIMELINE, timelineOf(nextResolved));
+      return live ? 'applied' : 'deferred';
     },
     autoSlice: () => {
       wake();
       scene.autoSlice();
+    },
+    shuffle: () => {
+      if (!scene.shuffle) return;
+      wake();
+      scene.shuffle();
     },
     reset: () => {
       wake();

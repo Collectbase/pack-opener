@@ -60,11 +60,10 @@ export class BurstScene {
     this.root.alpha = 0;
     app.stage.addChild(this.root);
 
-    this.rect = computePackRect(
+    this.rect = this.layoutRect(
       app.screen.width,
       app.screen.height,
       texture.width / texture.height,
-      this.o.layout.pack,
     );
 
     this.pack = new ChargingPack(this.root, texture, this.rect, this.o.theme);
@@ -240,22 +239,29 @@ export class BurstScene {
    * a spinner. A card that is already in hand still gets one short pass of it,
    * because the pieces have to come from somewhere.
    */
-  startSwarm() {
+  startSwarm(again = false) {
     if (!this.artWaitStart) {
       this.artWaitStart = Date.now();
     }
     this.buildAssembly();
 
-    this.animate('swarm', this.o.burst.swarmMs, () => {
-      const waited = Date.now() - this.artWaitStart;
-      // Still nothing to cut pieces from: keep the cloud turning, but not past
-      // the deadline the host set for the artwork
-      if (!this.assembly.built && waited < this.o.assets.card.timeoutMs) {
-        this.startSwarm();
-        return;
-      }
-      this.startAssemble();
-    });
+    // A swarm that carries on from the one before it — the artwork still on
+    // its way — is not announced again: the host hears one swarm per wait
+    this.animate(
+      'swarm',
+      this.o.burst.swarmMs,
+      () => {
+        const waited = Date.now() - this.artWaitStart;
+        // Still nothing to cut pieces from: keep the cloud turning, but not past
+        // the deadline the host set for the artwork
+        if (!this.assembly.built && waited < this.o.assets.card.timeoutMs) {
+          this.startSwarm(true);
+          return;
+        }
+        this.startAssemble();
+      },
+      again,
+    );
   }
 
   /**
@@ -338,8 +344,13 @@ export class BurstScene {
 
   /* ── frame ── */
 
-  animate(kind, duration, onDone) {
+  animate(kind, duration, onDone, quiet = false) {
     this.anim = {kind, duration, elapsed: 0, onDone};
+    // `quiet`: a phase that continues the one before it (another pass of
+    // the swarm) is not announced again
+    if (!quiet) {
+      this.emit(MESSAGES.PHASE, {name: kind, durationMs: duration});
+    }
   }
 
   update(deltaMS) {
@@ -500,6 +511,7 @@ export class BurstScene {
     const baked =
       JSON.stringify(before.theme) !== JSON.stringify(next.theme) ||
       JSON.stringify(before.layout) !== JSON.stringify(next.layout) ||
+      JSON.stringify(before.rest) !== JSON.stringify(next.rest) ||
       before.burst.cols !== next.burst.cols ||
       before.burst.rows !== next.burst.rows ||
       before.burst.flashScale !== next.burst.flashScale ||
@@ -515,13 +527,16 @@ export class BurstScene {
       before.burst.assembleSpread !== next.burst.assembleSpread;
 
     if (!baked) {
-      return;
+      return true;
     }
+    // A charge in hand, or a ceremony played out (the charge stays at 1 until
+    // `reset()`): the change waits on that reset, and the false return says so
     if (this.anim || this.charge > 0) {
       this.pendingRebuild = true;
-      return;
+      return false;
     }
     this.rebuild();
+    return true;
   }
 
   /**
@@ -537,13 +552,28 @@ export class BurstScene {
     this.rebuild();
   }
 
+  /**
+   * The pack's box. With `layout.pack.anchor: 'card'` the pack is placed so
+   * its centre is where the card will come to rest — sized on a first pass,
+   * then moved — so the blast does not leave the card somewhere else. The
+   * default keeps it centred on the stage, nudged by `offsetY`.
+   */
+  layoutRect(width, height, aspect) {
+    const {pack, stage} = this.o.layout;
+    const sized = computePackRect(width, height, aspect, pack, stage);
+    if (pack.anchor !== 'card') {
+      return sized;
+    }
+    const anchorY = RevealCard.restingCentre({width, height}, sized, this.o);
+    return computePackRect(width, height, aspect, pack, stage, anchorY);
+  }
+
   rebuild() {
     this.pendingRebuild = false;
-    this.rect = computePackRect(
+    this.rect = this.layoutRect(
       this.app.screen.width,
       this.app.screen.height,
       this.texture.width / this.texture.height,
-      this.o.layout.pack,
     );
 
     this.pack.layout(this.rect);

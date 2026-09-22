@@ -34,6 +34,11 @@ export interface VariantInstance {
 
   /** Open without a gesture. */
   autoSlice: () => void;
+  /**
+   * Mix the choice up, for a mechanic that offers one (`carousel` spins its
+   * ring). Optional: a mechanic with nothing to shuffle omits it.
+   */
+  shuffle?: () => void;
   /** Back to the untouched state, gesture rearmed. */
   reset: () => void;
   setEnabled: (value: boolean) => void;
@@ -46,8 +51,10 @@ export interface VariantInstance {
   /**
    * New options for a scene that is already running. Optional: a variant that
    * cannot retune itself simply omits it and the engine remounts instead.
+   * Returns true when the change is applied on the spot, false when it has to
+   * wait for `reset()` — the scene is mid-ceremony or holding a revealed card.
    */
-  setOptions?: (options: ResolvedOptions) => void;
+  setOptions?: (options: ResolvedOptions) => boolean;
 
   /**
    * The stage changed size; the variant re-derives whatever it measured against

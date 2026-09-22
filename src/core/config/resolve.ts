@@ -1,5 +1,5 @@
 import {variantOf} from '../variants';
-import type {PackOpenerOptions, ResolvedOptions} from './types';
+import type {PackOpenerOptions, ResolvedOptions, RestOptions} from './types';
 
 /** Card artwork the scene will wait for, before giving up and finishing. */
 const CARD_TIMEOUT_MS = 4000;
@@ -80,6 +80,22 @@ function scaleDurations<T extends object>(group: T, speed: number, keys: (keyof 
  * place defaults live: the scene and both wrappers read the resolved object, so
  * they can never disagree about what a missing field means.
  */
+const finite = (...values: unknown[]) => values.every(v => typeof v === 'number' && Number.isFinite(v));
+
+/** Only the boxes given in full; the rest of `rest` is dropped. */
+function restOf(rest: RestOptions): RestOptions {
+  const out: RestOptions = {};
+  const card = rest.card;
+  if (card && finite(card.left, card.top, card.width, card.height) && card.width > 0 && card.height > 0) {
+    out.card = {left: card.left, top: card.top, width: card.width, height: card.height};
+  }
+  const pedestal = rest.pedestal;
+  if (pedestal && finite(pedestal.left, pedestal.width, pedestal.bottom) && pedestal.width > 0) {
+    out.pedestal = {left: pedestal.left, width: pedestal.width, bottom: pedestal.bottom};
+  }
+  return out;
+}
+
 export function resolveOptions(options: PackOpenerOptions): ResolvedOptions {
   const variant = variantOf(options.variant);
   const presetName = options.preset ?? variant.defaultPreset;
@@ -94,6 +110,18 @@ export function resolveOptions(options: PackOpenerOptions): ResolvedOptions {
       card: {
         url: options.assets?.card?.url ?? '',
         timeoutMs: options.assets?.card?.timeoutMs ?? CARD_TIMEOUT_MS,
+        // Only what can be shown: a fact with nothing to say is dropped
+        facts: (options.assets?.card?.facts ?? []).filter(
+          fact => fact && String(fact.value ?? '').trim() && String(fact.label ?? '').trim(),
+        ),
+        ...(options.assets?.card?.badge?.label
+          ? {
+              badge: {
+                label: options.assets.card.badge.label,
+                color: options.assets.card.badge.color ?? '#f5d000',
+              },
+            }
+          : {}),
       },
       // Empty means "the one baked into the package" — the scene decides, so a
       // host that has no stand of its own passes nothing
@@ -102,6 +130,8 @@ export function resolveOptions(options: PackOpenerOptions): ResolvedOptions {
     theme: merge(preset.theme, options.theme),
     motion: merge(preset.motion, options.motion),
     layout: merge(preset.layout, options.layout),
+    // The host's own, whole or not at all: a box with a side missing is no box
+    ...(options.rest ? {rest: restOf(options.rest)} : {}),
     performance: merge(preset.performance, options.performance),
     // Only for the mechanic that owns them: a preset without `interaction` has
     // no cut to read, one without `charge` has no pressure to build. Filling
@@ -113,6 +143,9 @@ export function resolveOptions(options: PackOpenerOptions): ResolvedOptions {
     hint: preset.hint ? merge(preset.hint, options.hint) : undefined,
     charge: preset.charge ? merge(preset.charge, options.charge) : undefined,
     burst: preset.burst ? merge(preset.burst, options.burst) : undefined,
+    carousel: preset.carousel
+      ? merge(preset.carousel, options.carousel)
+      : undefined,
   } as ResolvedOptions;
 
   // Read before `applySpeed`, which bakes the factor in and resets it to 1
@@ -137,6 +170,21 @@ export function resolveOptions(options: PackOpenerOptions): ResolvedOptions {
       'swarmMs',
       'assembleMs',
       'snapMs',
+    ]);
+  }
+  if (resolved.carousel) {
+    resolved.carousel = scaleDurations(resolved.carousel, speed, [
+      'shuffleMs',
+      'dropMs',
+      'riseMs',
+      'dissolveMs',
+      'factMs',
+      'factGapMs',
+      'bannerMs',
+      'bannerHoldMs',
+      'flipMs',
+      'settleMs',
+      'hoverMs',
     ]);
   }
   return resolved;

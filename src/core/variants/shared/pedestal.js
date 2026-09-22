@@ -64,6 +64,18 @@ export class CardPedestal {
     }
 
     const {widthRatio, aspect, gapRatio} = this.o.layout.pedestal;
+    // Where the host said, if it did: its own box's bottom edge and width,
+    // the height the artwork's own — as an image's in the host's layout
+    const given = this.o.rest?.pedestal;
+    if (given) {
+      const own =
+        this.texture && this.texture.width > 0 ? this.texture.height / this.texture.width : aspect;
+      const height = given.width * own;
+      this.node.width = given.width;
+      this.node.height = height;
+      this.node.position.set(given.left + given.width / 2, given.bottom - height);
+      return;
+    }
     const width = this.cardWidth * widthRatio;
 
     this.node.width = width;
