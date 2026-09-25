@@ -15,23 +15,30 @@ export const MESSAGES = {
   REVEALED: 'revealed',
   RETRACTED: 'retracted',
   /**
+   * The card has turned over and landed face up (`slice`) — the moment for
+   * a heavy haptic or an impact sound. The React Native wrapper turns it into
+   * `onHaptic('heavy')` by itself.
+   */
+  IMPACT: 'impact',
+  /**
    * A phase of the ceremony has begun; `name` is the scene's own word for it
-   * (slice: autoSlice, runOut, open, spin, spinHold — the card turning on
-   * while its artwork is still on its way, announced once for the whole
-   * wait — unveil, beam, hold, retract;
+   * (slice: autoSlice, runOut, open, charge, chargeHold — the card held at
+   * its peak while its artwork is still on its way, announced once for the
+   * whole wait — flip, land, hold, retract;
    * burst: autoCharge, release, beat, swarm, assemble, snap, settle) and
    * `durationMs` how long it will run. For a host that scores the ceremony —
-   * a sound on the lid coming off, another on the card landing, a swish on
-   * each turn of the card — where `opened` and `revealed` are too coarse.
+   * a sound on the lid coming off, a rising tone under the charge, a swish on
+   * the turn — where `opened` and `revealed` are too coarse.
    */
   PHASE: 'phase',
   /**
    * How long each phase of the ceremony will run, in ms, after `motion.speed`
-   * — `spinMs`, `unveilMs`, `beamMs`, `holdMs`, and for burst `chargeHoldMs`,
-   * `releaseMs`, `beatMs`, `swarmMs`, `assembleMs`, `snapMs`. Posted with
-   * `ready` and again after every retune, so a host that cues a sound ahead
-   * of a phase (an impact that has to land as the card does) can count from
-   * the real numbers. Web only: the scene bundle does not post it.
+   * — for slice `chargeMs`, `flipMs`, `landMs`, `holdMs`; for burst
+   * `chargeHoldMs`, `releaseMs`, `beatMs`, `swarmMs`, `assembleMs`,
+   * `snapMs`. Posted with `ready` and again after every retune, so a host
+   * that cues a sound ahead of a phase (an impact that has to land as the
+   * card does) can count from the real numbers. Web only: the scene bundle
+   * does not post it.
    */
   TIMELINE: 'timeline',
   /** The stage changed size — a rotated phone, a resized window — and the pack

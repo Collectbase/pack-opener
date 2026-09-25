@@ -21,9 +21,8 @@ export type SetOptionsResult = 'applied' | 'deferred' | 'scene';
 /** The `timeline` event's payload: phase lengths in ms, after `motion.speed`. */
 export type PackOpenerTimeline = Partial<
   Record<
-    | 'spinMs'
-    | 'unveilMs'
-    | 'beamMs'
+    | 'chargeMs'
+    | 'landMs'
     | 'holdMs'
     | 'chargeHoldMs'
     | 'releaseMs'
@@ -48,6 +47,7 @@ export type PackOpenerTimeline = Partial<
 function timelineOf(resolved: ResolvedOptions): PackOpenerTimeline {
   const o = resolved as unknown as {
     motion: {reveal: Record<string, unknown>};
+    slice?: Record<string, unknown>;
     charge?: Record<string, unknown>;
     burst?: Record<string, unknown>;
     carousel?: Record<string, unknown>;
@@ -55,9 +55,8 @@ function timelineOf(resolved: ResolvedOptions): PackOpenerTimeline {
   const pick = (source: Record<string, unknown> | undefined, key: string) =>
     typeof source?.[key] === 'number' ? (source[key] as number) : undefined;
   const timeline: PackOpenerTimeline = {
-    spinMs: pick(o.motion.reveal, 'spinMs'),
-    unveilMs: pick(o.motion.reveal, 'unveilMs'),
-    beamMs: pick(o.motion.reveal, 'beamMs'),
+    chargeMs: pick(o.slice, 'chargeMs'),
+    landMs: pick(o.slice, 'landMs'),
     holdMs: pick(o.motion.reveal, 'holdMs'),
     chargeHoldMs: pick(o.charge, 'holdMs'),
     releaseMs: pick(o.charge, 'releaseMs'),
@@ -73,7 +72,7 @@ function timelineOf(resolved: ResolvedOptions): PackOpenerTimeline {
     factGapMs: pick(o.carousel, 'factGapMs'),
     bannerMs: pick(o.carousel, 'bannerMs'),
     bannerHoldMs: pick(o.carousel, 'bannerHoldMs'),
-    flipMs: pick(o.carousel, 'flipMs'),
+    flipMs: pick(o.carousel, 'flipMs') ?? pick(o.slice, 'flipMs'),
   };
   for (const key of Object.keys(timeline) as (keyof PackOpenerTimeline)[]) {
     if (timeline[key] === undefined) delete timeline[key];

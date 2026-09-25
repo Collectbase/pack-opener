@@ -68,10 +68,7 @@ const GROUPS: {title: string; variants?: string[]; controls: Control[]}[] = [
     controls: [
       {kind: 'range', path: 'motion.speed', label: 'Speed ×', min: 0.25, max: 4, step: 0.05},
       {kind: 'range', path: 'motion.open.ms', label: 'Lid + slide out, ms', min: 300, max: 2500, step: 50},
-      {kind: 'range', path: 'motion.reveal.spinMs', label: 'Spin, ms', min: 400, max: 6000, step: 100},
-      {kind: 'range', path: 'motion.reveal.unveilMs', label: 'Unveil, ms', min: 100, max: 2000, step: 50},
-      {kind: 'range', path: 'motion.reveal.beamMs', label: 'Beam, ms', min: 100, max: 2500, step: 50},
-      {kind: 'range', path: 'motion.reveal.sparks', label: 'Sparks', min: 0, max: 80, step: 1},
+      {kind: 'range', path: 'motion.reveal.holdMs', label: 'Hold before revealed, ms', min: 0, max: 3000, step: 50},
       {kind: 'select', path: 'motion.reveal.beamStyle', label: 'Beam style', options: ['segments', 'ribbon']},
     ],
   },
@@ -102,9 +99,8 @@ const GROUPS: {title: string; variants?: string[]; controls: Control[]}[] = [
   {
     title: 'Card & glows',
     controls: [
-      {kind: 'range', path: 'motion.reveal.spinTurns', label: 'Turns', min: 0.5, max: 6, step: 0.5},
-      {kind: 'range', path: 'motion.reveal.spinFlatness', label: 'Edge-on thinness', min: 0.01, max: 0.4, step: 0.01},
-      {kind: 'range', path: 'motion.reveal.spinShade', label: 'Edge-on shading', min: 0, max: 0.5, step: 0.01},
+      {kind: 'range', path: 'motion.reveal.spinFlatness', label: 'Flat turn: edge-on thinness', min: 0.01, max: 0.4, step: 0.01},
+      {kind: 'range', path: 'motion.reveal.spinShade', label: 'Flat turn: edge-on shading', min: 0, max: 0.5, step: 0.01},
       {kind: 'color', path: 'theme.rim', label: 'Rim'},
       {kind: 'color', path: 'theme.bloom', label: 'Bloom'},
       {kind: 'range', path: 'motion.reveal.haloAlpha', label: 'Halo opacity', min: 0, max: 1, step: 0.05},
@@ -117,18 +113,75 @@ const GROUPS: {title: string; variants?: string[]; controls: Control[]}[] = [
     ],
   },
   {
-    title: 'Beam & sparks',
+    title: 'Beam',
     controls: [
       {kind: 'range', path: 'motion.reveal.beamTail', label: 'Beam tail', min: 0.05, max: 1, step: 0.01},
       {kind: 'range', path: 'motion.reveal.beamWidth', label: 'Beam width, px', min: 1, max: 12, step: 0.5},
       {kind: 'range', path: 'motion.reveal.beamGlowWidth', label: 'Beam glow, px', min: 0, max: 40, step: 1},
       {kind: 'range', path: 'motion.reveal.beamGlowAlpha', label: 'Beam glow opacity', min: 0, max: 1, step: 0.02},
       {kind: 'range', path: 'motion.reveal.beamTipRadius', label: 'Beam tip, px', min: 0, max: 24, step: 1},
-      {kind: 'color', path: 'theme.spark', label: 'Sparks'},
-      {kind: 'range', path: 'motion.reveal.sparkSize', label: 'Spark size', min: 0.2, max: 6, step: 0.1},
-      {kind: 'range', path: 'motion.reveal.sparkJitter', label: 'Spark size spread', min: 0, max: 8, step: 0.1},
-      {kind: 'range', path: 'motion.reveal.sparkSpreadX', label: 'Spark scatter x, px', min: 0, max: 30, step: 1},
-      {kind: 'range', path: 'motion.reveal.sparkSpreadY', label: 'Spark scatter y, px', min: 0, max: 30, step: 1},
+      {kind: 'color', path: 'theme.spark', label: 'Sparks, glints, embers'},
+    ],
+  },
+  {
+    title: 'Pack at rest',
+    variants: ['slice'],
+    controls: [
+      {kind: 'range', path: 'slice.floatAmp', label: 'Float, pack heights', min: 0, max: 0.04, step: 0.001},
+      {kind: 'range', path: 'slice.floatMs', label: 'Float, ms', min: 800, max: 8000, step: 100},
+      {kind: 'range', path: 'slice.foilEveryMs', label: 'Foil glint every, ms', min: 1000, max: 10000, step: 100},
+      {kind: 'range', path: 'slice.foilMs', label: 'Foil glint pass, ms', min: 200, max: 3000, step: 50},
+      {kind: 'range', path: 'slice.foilAlpha', label: 'Foil glint opacity', min: 0, max: 1, step: 0.05},
+      {kind: 'range', path: 'slice.foilWidth', label: 'Foil glint width', min: 0.1, max: 1.5, step: 0.05},
+      {kind: 'range', path: 'slice.foilTilt', label: 'Foil glint slant, rad', min: -1.2, max: 1.2, step: 0.02},
+      {kind: 'range', path: 'slice.backlightAlpha', label: 'Backlight opacity', min: 0, max: 1, step: 0.02},
+      {kind: 'range', path: 'slice.backlightSpread', label: 'Backlight reach, px', min: 4, max: 80, step: 1},
+    ],
+  },
+  {
+    title: 'The cut',
+    variants: ['slice'],
+    controls: [
+      {kind: 'color', path: 'theme.seam', label: 'Light of the cut'},
+      {kind: 'range', path: 'slice.bladeGlow', label: 'Hot point under the blade, px', min: 0, max: 80, step: 1},
+      {kind: 'range', path: 'slice.bladeSparks', label: 'Blade sparks per px', min: 0, max: 1.5, step: 0.02},
+      {kind: 'range', path: 'slice.sparkSpeed', label: 'Spark speed, px/s', min: 40, max: 1200, step: 10},
+      {kind: 'range', path: 'slice.sparkLifeMs', label: 'Spark life, ms', min: 100, max: 1500, step: 10},
+      {kind: 'range', path: 'slice.sparkSize', label: 'Spark size, px', min: 0.5, max: 6, step: 0.1},
+      {kind: 'range', path: 'slice.sparkGravity', label: 'Spark gravity, px/s²', min: 0, max: 4000, step: 50},
+      {kind: 'range', path: 'slice.burstSparks', label: 'Sparks when the seal gives', min: 0, max: 200, step: 2},
+      {kind: 'range', path: 'slice.joltScale', label: 'Pack jolt', min: 0, max: 0.12, step: 0.005},
+      {kind: 'range', path: 'slice.pourAlpha', label: 'Light out of the pack', min: 0, max: 1, step: 0.05},
+      {kind: 'range', path: 'slice.riseBloom', label: 'Rising card bloom', min: 0, max: 1, step: 0.05},
+    ],
+  },
+  {
+    title: 'Card turn',
+    variants: ['slice'],
+    controls: [
+      {kind: 'range', path: 'slice.chargeMs', label: 'Charge, ms', min: 0, max: 3000, step: 50},
+      {kind: 'range', path: 'slice.chargeLaps', label: 'Beam laps', min: 0, max: 5, step: 0.1},
+      {kind: 'range', path: 'slice.chargeHalo', label: 'Halo while charging', min: 0, max: 1, step: 0.05},
+      {kind: 'range', path: 'slice.emblemAlpha', label: 'Star on the back', min: 0, max: 1, step: 0.05},
+      {kind: 'range', path: 'slice.tiltDeg', label: 'Sway, °', min: 0, max: 25, step: 0.5},
+      {kind: 'range', path: 'slice.tiltMs', label: 'Sway, ms', min: 400, max: 6000, step: 100},
+      {kind: 'range', path: 'slice.tremble', label: 'Tremble, px', min: 0, max: 8, step: 0.1},
+      {kind: 'range', path: 'slice.flipMs', label: 'Flip, ms', min: 150, max: 2000, step: 10},
+      {kind: 'range', path: 'slice.flipLift', label: 'Flip comes forward', min: 0, max: 0.5, step: 0.01},
+      {kind: 'range', path: 'slice.flipRise', label: 'Flip rises', min: 0, max: 0.3, step: 0.01},
+      {kind: 'range', path: 'slice.flipFlare', label: 'Edge-on flare', min: 0, max: 3, step: 0.05},
+      {kind: 'range', path: 'slice.focal', label: 'Lens, card heights', min: 1, max: 12, step: 0.1},
+      {kind: 'range', path: 'slice.landMs', label: 'Landing, ms', min: 200, max: 2000, step: 10},
+      {kind: 'range', path: 'slice.landPunch', label: 'Landing push', min: 0, max: 0.3, step: 0.01},
+      {kind: 'range', path: 'slice.landShake', label: 'Landing knock, px', min: 0, max: 24, step: 0.5},
+      {kind: 'range', path: 'slice.twinkles', label: 'Glints', min: 0, max: 16, step: 1},
+      {kind: 'range', path: 'slice.twinkleSize', label: 'Glint size, px', min: 4, max: 90, step: 1},
+      {kind: 'range', path: 'slice.twinkleMs', label: 'Glint, ms', min: 80, max: 1000, step: 10},
+      {kind: 'range', path: 'slice.embers', label: 'Embers', min: 0, max: 120, step: 1},
+      {kind: 'range', path: 'slice.emberMs', label: 'Embers, ms', min: 300, max: 6000, step: 100},
+      {kind: 'range', path: 'slice.emberSize', label: 'Ember size, px', min: 0.5, max: 8, step: 0.1},
+      {kind: 'range', path: 'slice.emberRise', label: 'Embers rise, card heights', min: 0, max: 3, step: 0.05},
+      {kind: 'range', path: 'slice.emberAlpha', label: 'Ember opacity', min: 0, max: 1, step: 0.05},
     ],
   },
   {
@@ -143,7 +196,7 @@ const GROUPS: {title: string; variants?: string[]; controls: Control[]}[] = [
       {kind: 'range', path: 'layout.pack.offsetY', label: 'Pack offset down', min: -0.3, max: 0.3, step: 0.01},
       {kind: 'range', path: 'layout.card.heightRatio', label: 'Card height / pack', min: 0.4, max: 1.4, step: 0.01},
       {kind: 'range', path: 'layout.card.packWidthRatio', label: 'Card width / pack', min: 0.3, max: 1.2, step: 0.01},
-      {kind: 'range', path: 'layout.card.maxRatio', label: 'Card widest ratio', min: 0.4, max: 1.6, step: 0.02},
+      {kind: 'range', path: 'layout.card.maxRatio', label: 'Card widest ratio', min: 0.4, max: 2.5, step: 0.02},
     ],
   },
   {
@@ -494,7 +547,7 @@ function buildPanel() {
           set(control.path, input.value);
           // A mechanic brings its own preset and its own knobs, so the panel
           // is rebuilt around it rather than left offering the old ones
-          for (const key of ['interaction', 'hint', 'charge', 'burst', 'carousel']) {
+          for (const key of ['interaction', 'hint', 'slice', 'charge', 'burst', 'carousel']) {
             delete (options as Record<string, unknown>)[key];
           }
           resolvedPreview = resolveOptions({

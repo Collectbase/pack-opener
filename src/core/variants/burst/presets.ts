@@ -26,14 +26,20 @@ export const PRESETS: Record<
       bloom: '#ffffff',
       beam: '#ffffff',
       spark: '#ffffff',
+      // The cut's light — there is no cut here, kept so the theme is whole
+      seam: '#ffcf8a',
       hint: '#ffffff',
+      // Plain: the carousel flips this back into view, and it is designed blank
       cardBack: {
         top: '#ffffff',
         mid: '#f4f6ff',
         bottom: '#e9edf8',
         sheen: 'rgba(255,255,255,0.85)',
+        line: 'transparent',
+        emblem: 'transparent',
       },
-      cornerRadius: 14,
+      // The artwork's own corners: a graded slab is barely rounded
+      cornerRadius: 6,
     },
     motion: {
       speed: 1,
@@ -59,17 +65,12 @@ export const PRESETS: Record<
       },
       // This mechanic assembles the card instead of turning it over, so only
       // `holdMs`, the three glow opacities and the card's geometry are read
-      // from here — the spin, the wipe and the beam belong to the cut
+      // from here — the beam belongs to the cut, the spin to the carousel
       reveal: {
         /** The stand comes in behind the card, ahead of the host's own UI. */
         pedestalMs: 260,
-        spinMs: 2200,
-        unveilMs: 600,
-        beamMs: 800,
         holdMs: 900,
-        spinTurns: 2,
         beamTail: 0.32,
-        sparks: 26,
         spinFlatness: 0.06,
         spinShade: 0.05,
         spinBloom: 0.85,
@@ -84,11 +85,6 @@ export const PRESETS: Record<
         beamSteps: 24,
         beamStyle: 'segments',
         outlineDetail: 9,
-        sparkSize: 1.3,
-        sparkJitter: 2.4,
-        sparkAlpha: 0.85,
-        sparkSpreadX: 6,
-        sparkSpreadY: 5,
         artWaitSpinMs: 600,
         // The card's own moment: its outline swells and a highlight runs
         // across the artwork. Both belong to the card, so a loud landing
@@ -236,7 +232,8 @@ export const PRESETS: Record<
         heightRatio: 0.95,
         packWidthRatio: 0.64,
         aspect: 0.66,
-        maxRatio: 0.8,
+        // The artwork's own shape, landscape too: past this its sides are cut
+        maxRatio: 2,
         spinAt: 'rest',
       },
       pedestal: {

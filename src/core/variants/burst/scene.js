@@ -201,6 +201,11 @@ export class BurstScene {
       this.card.build(this.rect);
     }
     this.card.place(this.rect);
+    this.standCard();
+  }
+
+  /** Where the card comes to rest, and its stand under it. */
+  standCard() {
     this.cardRect = this.card.bounds();
     this.pedestal.build(
       this.cardRect.left + this.cardRect.width / 2,
@@ -214,7 +219,11 @@ export class BurstScene {
   }
 
   setCardTexture(texture) {
-    this.card.setTexture(texture);
+    // Built again to the artwork's shape, the card rests elsewhere: its rect
+    // and its stand follow, before the pieces are cut against them
+    if (this.card.setTexture(texture) && this.cardRect) {
+      this.standCard();
+    }
     // The pieces are cut from the artwork, so a card that arrived late has to
     // be cut now — mid-assembly it would leave half the pieces blank
     if (!this.anim || this.anim.kind !== 'assemble') {

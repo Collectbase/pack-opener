@@ -14,15 +14,19 @@ import {clamp, easeInOut} from './geometry';
 function drawHint(g, rect, head, hint, color) {
   g.clear();
 
-  // Eased in and out at the ends of the sweep, so nothing pops into view
-  const presence = Math.sin(Math.PI * clamp(head, 0, 1));
+  // Eased in and out at the very ends of the sweep, so nothing pops into
+  // view — and only there: faded over the whole of it, the comet was only
+  // really seen across the middle of the pack
+  const presence = Math.min(1, 3 * Math.sin(Math.PI * clamp(head, 0, 1)));
   if (presence <= 0.01) {
     return;
   }
 
   const y = rect.top + rect.height * hint.lineRatio;
-  const span = rect.width * hint.sweep;
-  const from = rect.left + (rect.width - span) / 2;
+  // Kept a head's width inside the edges, so the comet never hangs off the pack
+  const inner = rect.width - hint.headRadius * 2;
+  const span = inner * hint.sweep;
+  const from = rect.left + hint.headRadius + (inner - span) / 2;
   const x = from + span * head;
   const tail = rect.width * hint.tail;
 

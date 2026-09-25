@@ -1,24 +1,49 @@
 /**
- * The card that comes out of the pack: its artwork, the blank back it spins
- * behind, the glows around it and the beam that runs its outline. It owns those
- * nodes and every phase of the reveal — a scene hands it the pack rect, the
- * options and a time, and asks it to draw.
+ * The card that comes out of the pack: its artwork, the back it shows before
+ * it turns, the glows around it and the beam that runs its outline. It owns
+ * those nodes and every phase of the reveal — a scene hands it the pack rect,
+ * the options and a time, and asks it to draw.
  *
  * Shared on purpose: how the wrapper comes apart is what makes a mechanic, but
  * the card that comes out is the same object every time. A variant picks how it
- * enters: slid past a cut lip and turned over (`park` + `slide` + `reveal`), or
- * put there whole once something else has drawn its arrival (`place` +
+ * enters: slid past a cut lip, gathered and turned over in perspective (`park`
+ * + `slide` + `charge` + `flipOver` + `land`), flipped flat (`reveal('flip')`),
+ * or put there whole once something else has drawn its arrival (`place` +
  * `revealInstant`).
  */
-import {Container, Graphics, MeshRope, Point, Sprite, Texture} from 'pixi.js';
-import {clamp, easeInOut, easeOut, jitterAt, outlinePath, pointAt} from './geometry';
 import {
+  Container,
+  Graphics,
+  MeshRope,
+  PerspectiveMesh,
+  Point,
+  RenderTexture,
+  Sprite,
+  Texture,
+} from 'pixi.js';
+import {mixNumbers} from '../../runtime/color';
+import {
+  clamp,
+  easeInOut,
+  easeOut,
+  jitterAt,
+  outlinePath,
+  pointAt,
+  projectPoint,
+} from './geometry';
+import {
+  EMBLEM_GLOW_SPAN,
   makeBloomTexture,
   makeCardBackTexture,
   makeCometTexture,
+  makeEmblemGlowTexture,
   makeHaloTexture,
   makeSheenTexture,
+  makeTwinkleTexture,
 } from './textures';
+
+/** Grid of the perspective meshes: fine enough that the artwork does not bend between vertices. */
+const MESH_GRID = 10;
 
 /**
  * Samples along the ribbon beam. Dense on purpose: a rope wider than the
@@ -119,11 +144,24 @@ export class RevealCard {
     this.colors = colors;
     this.texture = null;
     this.node = null;
+    // Set by `useDepth`: the card turns in perspective instead of flat
+    this.renderer = null;
   }
 
   setOptions(options, colors) {
     this.o = options;
     this.colors = colors;
+  }
+
+  /**
+   * Turn the card in perspective rather than squeezing it: its two sides
+   * become meshes whose corners are projected every frame, so the edge
+   * turning away gets shorter as it would on a real card. Needs the renderer
+   * — the artwork's rounded face is baked into a texture a mesh can carry.
+   * Called once, before the first `build`.
+   */
+  useDepth(renderer) {
+    this.renderer = renderer;
   }
 
   /** Built once — a replay reuses the same card and just rewinds it. */
@@ -139,12 +177,127 @@ export class RevealCard {
     return this.size.height;
   }
 
+  /**
+   * The artwork, whenever it arrives. A card built before it did was sized to
+   * a guess at its shape (`layout.card.aspect`), and artwork of another shape
+   * was cover-fitted into the guess — a slab lost the top and bottom of its
+   * frame. So a card whose face has not been shown yet is built again to the
+   * artwork's own shape. True when it was: the scene lays out again what it
+   * placed against the card.
+   */
   setTexture(texture) {
     this.texture = texture;
-    if (this.face && texture) {
-      this.face.texture = texture;
-      this.fitFace();
+    if (!this.face || !texture) {
+      return false;
     }
+    if (this.face.alpha === 0 && !this.landed && this.misfits(texture)) {
+      this.refit();
+      return true;
+    }
+    this.face.texture = texture;
+    this.fitFace();
+    this.bakeFace();
+    return false;
+  }
+
+  /** Whether the card was built to a shape the artwork does not have. */
+  misfits(texture) {
+    if (!texture.width || !texture.height) {
+      return false;
+    }
+    const {width, height} = cardLayoutFor(
+      this.rect,
+      this.screen,
+      texture.width / texture.height,
+      this.o,
+    );
+    return (
+      Math.abs(width - this.size.width) > 0.5 ||
+      Math.abs(height - this.size.height) > 0.5
+    );
+  }
+
+  /**
+   * Built again to the artwork's shape, from where the card is now: its
+   * place, its presence, its layer and the clip at the lip — and where it
+   * comes to rest, which moves with its size. The phase that is playing
+   * draws the rest on its next frame.
+   */
+  refit() {
+    const {x, y} = this.node;
+    const alpha = this.node.alpha;
+    const scale = this.node.scale.x;
+    const layer = this.sceneRoot.getChildIndex(this.node);
+    const clipped = this.turn.mask === this.clipG;
+    const {clipBottom, fromY, spinY} = this;
+    const turnsAtPack = this.lifts;
+
+    this.destroy();
+    this.build(this.rect);
+    this.sceneRoot.setChildIndex(
+      this.node,
+      Math.min(layer, this.sceneRoot.children.length - 1),
+    );
+    this.node.position.set(x, y);
+    this.node.alpha = alpha;
+    this.node.scale.set(scale);
+    if (clipped) {
+      this.turn.mask = this.clipG;
+      this.clip(clipBottom);
+    }
+    if (this.placed) {
+      this.fromY = fromY;
+      this.toY = this.restingY();
+      this.spinY = turnsAtPack ? spinY : this.toY;
+    }
+  }
+
+  /** Whether the card has been put somewhere to come out from (`park` or `place`). */
+  get placed() {
+    return this.fromY !== undefined;
+  }
+
+  /**
+   * The artwork as the mesh shows it while the card turns: cover-fitted and
+   * rounded exactly like the flat face, rendered once into a texture of its
+   * own. Multisampled, because the corners are cut by a mask, and a mask
+   * rendered off screen without it leaves them stepped.
+   */
+  bakeFace() {
+    if (!this.renderer || !this.faceMesh) {
+      return;
+    }
+    const {width, height} = this.size;
+    const holder = new Container();
+    const art = new Sprite(this.texture || Texture.WHITE);
+    art.anchor.set(0.5);
+    art.position.set(width / 2, height / 2);
+    if (this.texture && this.texture.width) {
+      art.scale.set(
+        Math.max(width / this.texture.width, height / this.texture.height),
+      );
+    } else {
+      art.width = width;
+      art.height = height;
+    }
+    const corners = new Graphics()
+      .roundRect(0, 0, width, height, this.o.theme.cornerRadius)
+      .fill(0xffffff);
+    art.mask = corners;
+    holder.addChild(art, corners);
+
+    const target = RenderTexture.create({
+      width,
+      height,
+      resolution: this.renderer.resolution,
+      antialias: true,
+    });
+    this.renderer.render({container: holder, target, clear: true});
+    // The artwork is still the flat face's, so only the holder goes
+    holder.destroy({children: true});
+    this.faceBaked?.destroy(true);
+    this.faceBaked = target;
+    this.faceMesh.texture = target;
   }
 
   /** Cover-fits the artwork into the card frame. */
@@ -166,6 +319,8 @@ export class RevealCard {
   }
 
   build(rect) {
+    // Kept, so the card can be built again once the artwork's shape is known
+    this.rect = rect;
     const aspect = this.texture
       ? this.texture.width / this.texture.height
       : this.o.layout.card.aspect;
@@ -237,7 +392,7 @@ export class RevealCard {
     this.back.anchor.set(0.5);
     this.back.width = width;
     this.back.height = height;
-    // Wipe mask: shrinks downwards while the card is unveiled
+    // Covers the card with its back; a flat turn drops it once the edge passes
     this.backMask = new Graphics();
     this.back.mask = this.backMask;
 
@@ -261,7 +416,6 @@ export class RevealCard {
       .fill(0xffffff);
     this.sheen.mask = sheenMask;
 
-    this.sparks = new Graphics();
     this.beam = new Graphics();
     this.beamPath = outlinePath(
       width,
@@ -277,7 +431,6 @@ export class RevealCard {
       this.backMask,
       this.sheen,
       sheenMask,
-      this.sparks,
       this.beam,
     );
     this.node.addChild(this.bloom, this.rim, this.halo, this.turn);
@@ -286,18 +439,134 @@ export class RevealCard {
     this.clipG = new Graphics();
     this.sceneRoot.addChild(this.clipG);
 
+    this.restX = this.node.x;
     this.rim.baseScaleX = this.rim.scale.x;
     this.glowBase = {
       rim: {x: this.rim.scale.x, y: this.rim.scale.y},
       halo: {x: this.halo.scale.x, y: this.halo.scale.y},
     };
+    this.bloomBase = {x: this.bloom.scale.x, y: this.bloom.scale.y};
     this.face.alpha = 0;
     this.drawBackMask(1);
     this.fitFace();
+
+    if (this.renderer) {
+      this.buildDepth(width);
+    }
+  }
+
+  /**
+   * The two sides as meshes, the printed star's light over the back and the
+   * glints that catch on the artwork once it lands. The flat back stays in
+   * the tree for the mechanics that flip flat, but is not shown.
+   */
+  buildDepth(width) {
+    this.backMesh = new PerspectiveMesh({
+      texture: this.back.texture,
+      verticesX: MESH_GRID,
+      verticesY: MESH_GRID,
+    });
+    this.faceMesh = new PerspectiveMesh({
+      texture: Texture.WHITE,
+      verticesX: MESH_GRID,
+      verticesY: MESH_GRID,
+    });
+    this.faceMesh.visible = false;
+
+    this.emblem = new Sprite(makeEmblemGlowTexture(128));
+    this.emblem.anchor.set(0.5);
+    this.emblem.width = width * EMBLEM_GLOW_SPAN;
+    this.emblem.height = width * EMBLEM_GLOW_SPAN;
+    this.emblem.blendMode = 'add';
+    this.emblem.alpha = 0;
+    this.emblemBase = this.emblem.scale.x;
+
+    this.twinkleTexture = makeTwinkleTexture(64);
+    this.twinkles = [];
+
+    this.back.visible = false;
+    // Under the highlight and the beam, over nothing else of the card
+    const at = this.turn.getChildIndex(this.backMask) + 1;
+    this.turn.addChildAt(this.backMesh, at);
+    this.turn.addChildAt(this.faceMesh, at + 1);
+    this.turn.addChildAt(this.emblem, at + 2);
+    this.bakeFace();
+    this.pose(0, 0, 1);
+  }
+
+  /**
+   * Stands the card at `yaw` / `pitch`, `lift` times its size: the side that
+   * faces the eye shown as a mesh in perspective, the other hidden, and the
+   * rim and halo stretched over the box the turned card covers — glows that
+   * stay square while the card turns read as belonging to something else.
+   * The projection is kept, so the beam can follow the same outline
+   * (`viewPoint`).
+   */
+  pose(yaw, pitch, lift) {
+    const {width, height} = this.size;
+    const focal = this.focal ?? height * 3;
+    const hw = (width / 2) * lift;
+    const hh = (height / 2) * lift;
+    const tl = projectPoint(-hw, -hh, yaw, pitch, focal);
+    const tr = projectPoint(hw, -hh, yaw, pitch, focal);
+    const br = projectPoint(hw, hh, yaw, pitch, focal);
+    const bl = projectPoint(-hw, hh, yaw, pitch, focal);
+    const facing = Math.cos(yaw) >= 0;
+
+    this.backMesh.visible = facing;
+    this.faceMesh.visible = !facing;
+    if (facing) {
+      this.backMesh.setCorners(tl.x, tl.y, tr.x, tr.y, br.x, br.y, bl.x, bl.y);
+    } else {
+      // The artwork is on the other side: its left edge is the back's right
+      this.faceMesh.setCorners(tr.x, tr.y, tl.x, tl.y, bl.x, bl.y, br.x, br.y);
+    }
+
+    const minX = Math.min(tl.x, tr.x, br.x, bl.x);
+    const maxX = Math.max(tl.x, tr.x, br.x, bl.x);
+    const minY = Math.min(tl.y, tr.y, br.y, bl.y);
+    const maxY = Math.max(tl.y, tr.y, br.y, bl.y);
+    const sx = Math.max((maxX - minX) / width, 0.04);
+    const sy = (maxY - minY) / height;
+    for (const [glow, base] of [
+      [this.rim, this.glowBase.rim],
+      [this.halo, this.glowBase.halo],
+    ]) {
+      glow.scale.set(base.x * sx, base.y * sy);
+      glow.position.set((minX + maxX) / 2, (minY + maxY) / 2);
+    }
+
+    this.emblem.visible = facing;
+    this.emblem.scale.set(
+      this.emblemBase * lift * Math.abs(Math.cos(yaw)),
+      this.emblemBase * lift,
+    );
+    this.projection = {yaw, pitch, lift, focal};
+  }
+
+  /**
+   * A point of the card's outline — in the card's own box, `0..width` across —
+   * where it is drawn: through the pose while the card is turned, straight
+   * about the centre otherwise.
+   */
+  viewPoint(x, y) {
+    const {width, height} = this.size;
+    const view = this.projection;
+    if (!view) {
+      return {x: x - width / 2, y: y - height / 2};
+    }
+    return projectPoint(
+      (x - width / 2) * view.lift,
+      (y - height / 2) * view.lift,
+      view.yaw,
+      view.pitch,
+      view.focal,
+    );
   }
 
   /** Everything above `bottomY` is visible; the rest is still in the wrapper. */
   clip(bottomY) {
+    this.clipBottom = bottomY;
     const {width, height} = this.screen;
     this.clipG
       .clear()
@@ -318,27 +587,11 @@ export class RevealCard {
       .fill(0xffffff);
   }
 
-  drawSparks(edgeY, strength) {
-    const {width} = this.size;
-    this.sparks.clear();
-    if (strength <= 0) {
-      return;
-    }
-    const reveal = this.o.motion.reveal;
-    for (let i = 0; i < reveal.sparks; i++) {
-      const t = (i + 0.5) / reveal.sparks;
-      const wobble = jitterAt(i, 0);
-      const x = -width / 2 + width * t + wobble * reveal.sparkSpreadX;
-      const y = edgeY + wobble * reveal.sparkSpreadY;
-      const size =
-        (reveal.sparkSize + Math.abs(wobble) * reveal.sparkJitter) * strength;
-      this.sparks
-        .circle(x, y, size)
-        .fill({color: this.colors.spark, alpha: reveal.sparkAlpha * strength});
-    }
-  }
-
-  /** `progress` runs the beam around the outline, `settled` fades the rim in. */
+  /**
+   * `progress` runs the beam around the outline, `settled` fades the rim in.
+   * Every point goes through `viewPoint`, so on a card turned in perspective the
+   * beam runs the outline the eye sees rather than the square one.
+   */
   drawBeam(progress, settled) {
     const {width, height} = this.size;
     const path = this.beamPath;
@@ -348,13 +601,27 @@ export class RevealCard {
     this.beam.clear();
 
     if (settled > 0) {
-      this.beam
-        .roundRect(-width / 2, -height / 2, width, height, this.o.theme.cornerRadius)
-        .stroke({
-          width: reveal.beamWidth,
-          color,
-          alpha: reveal.beamAlpha * settled,
-        });
+      if (this.projection) {
+        const outline = path.points.map(p => this.viewPoint(p.x, p.y));
+        this.beam.poly(outline.flatMap(p => [p.x, p.y]), true);
+      } else {
+        this.beam.roundRect(
+          -width / 2,
+          -height / 2,
+          width,
+          height,
+          this.o.theme.cornerRadius,
+        );
+      }
+      // Outside the edge, not on it: centred, half the line lay over the
+      // artwork and read as the light cutting into the card
+      this.beam.stroke({
+        width: reveal.beamWidth,
+        color,
+        alpha: reveal.beamAlpha * settled,
+        join: 'round',
+        alignment: 0,
+      });
     }
     if (progress <= 0 || progress >= 1) {
       this.hideRibbon();
@@ -373,20 +640,22 @@ export class RevealCard {
     for (let i = 0; i < steps; i++) {
       const t0 = i / steps;
       const t1 = (i + 1) / steps;
-      const p0 = pointAt(path, head - tail * (1 - t0));
-      const p1 = pointAt(path, head - tail * (1 - t1));
+      const a = pointAt(path, head - tail * (1 - t0));
+      const b = pointAt(path, head - tail * (1 - t1));
+      const p0 = this.viewPoint(a.x, a.y);
+      const p1 = this.viewPoint(b.x, b.y);
       const alpha = t1 * t1;
       this.beam
-        .moveTo(p0.x - width / 2, p0.y - height / 2)
-        .lineTo(p1.x - width / 2, p1.y - height / 2)
+        .moveTo(p0.x, p0.y)
+        .lineTo(p1.x, p1.y)
         .stroke({
           width: reveal.beamGlowWidth,
           color,
           alpha: alpha * reveal.beamGlowAlpha,
           cap: 'round',
         })
-        .moveTo(p0.x - width / 2, p0.y - height / 2)
-        .lineTo(p1.x - width / 2, p1.y - height / 2)
+        .moveTo(p0.x, p0.y)
+        .lineTo(p1.x, p1.y)
         .stroke({
           width: reveal.beamWidth,
           color: this.colors.beam,
@@ -395,9 +664,10 @@ export class RevealCard {
         });
     }
 
-    const tip = pointAt(path, head);
+    const end = pointAt(path, head);
+    const tip = this.viewPoint(end.x, end.y);
     this.beam
-      .circle(tip.x - width / 2, tip.y - height / 2, reveal.beamTipRadius)
+      .circle(tip.x, tip.y, reveal.beamTipRadius)
       .fill({color: this.colors.beam, alpha: reveal.beamAlpha});
   }
 
@@ -411,7 +681,6 @@ export class RevealCard {
    * that never draws it never carries it.
    */
   drawRibbon(head, tail) {
-    const {width, height} = this.size;
     const reveal = this.o.motion.reveal;
     if (!this.ribbon) {
       const points = [];
@@ -434,7 +703,8 @@ export class RevealCard {
     const last = points.length - 1;
     for (let i = 0; i <= last; i++) {
       const p = pointAt(this.beamPath, head - tail * (1 - i / last));
-      points[i].set(p.x - width / 2, p.y - height / 2);
+      const at = this.viewPoint(p.x, p.y);
+      points[i].set(at.x, at.y);
     }
     glow.tint = this.colors.glow;
     glow.alpha = Math.min(1, reveal.beamGlowAlpha * 2);
@@ -475,11 +745,14 @@ export class RevealCard {
   /**
    * The card and its glow. `t` is the whole open timeline: the glow leads, so by
    * the time the card clears the lip it is already lit — catching up afterwards
-   * looked like the card switched its light on late.
+   * looked like the card switched its light on late. `bloomLevel` and
+   * `bloomTint` let a mechanic keep that light low and warm, for a card whose
+   * own colour is still to come.
    */
-  slide(t) {
+  slide(t, bloomLevel = 1, bloomTint = 0xffffff) {
     const glow = clamp(t / this.o.motion.open.cardFrom, 0, 1);
-    this.bloom.alpha = glow;
+    this.bloom.alpha = glow * bloomLevel;
+    this.bloom.tint = bloomTint;
     this.rim.alpha = glow * this.o.motion.reveal.rimAlpha;
 
     const p = clamp((t - this.o.motion.open.cardFrom) / (1 - this.o.motion.open.cardFrom), 0, 1);
@@ -488,21 +761,18 @@ export class RevealCard {
     this.node.y = this.fromY + (target - this.fromY) * eased;
   }
 
+  /**
+   * The flat phases other mechanics build their reveal from: `spinHold` — the
+   * card turning on at one steady speed while its artwork is on its way, a
+   * whole turn per hold so it can run on for as many as it takes; `flip` —
+   * half a turn from the back to the artwork; `hold` — the finished card with
+   * its halo and lit outline.
+   */
   reveal(kind, t) {
-    const {height} = this.size;
     const reveal = this.o.motion.reveal;
 
-    if (kind === 'spin' || kind === 'spinHold') {
-      // Eased, so the turn picks up from the slide-out and settles into the wipe
-      // instead of starting and stopping at full speed. The hold — artwork
-      // still on its way — keeps turning at one steady speed instead: a whole
-      // turn per hold, so it can run on for as many holds as it takes with no
-      // stop between them, and end square, where the unveil picks up
-      const angle =
-        kind === 'spin'
-          ? Math.PI * 2 * reveal.spinTurns * easeInOut(t)
-          : Math.PI * 2 * t;
-      const cos = Math.cos(angle);
+    if (kind === 'spinHold') {
+      const cos = Math.cos(Math.PI * 2 * t);
       const flat = Math.max(Math.abs(cos), reveal.spinFlatness);
       // Scale alone reads as a turn; skewing on top of it looks like the card
       // is bent rather than rotating
@@ -514,37 +784,6 @@ export class RevealCard {
         reveal.spinBloom + (1 - reveal.spinBloom) * Math.abs(cos);
       this.rim.alpha = reveal.rimAlpha;
       this.rim.scale.x = this.rim.baseScaleX * flat;
-      return;
-    }
-
-    if (kind === 'unveil') {
-      // Square up before the wipe so the card reads flat
-      this.turn.scale.x = 1;
-      this.back.tint = 0xffffff;
-      // The item is not allowed on screen before this phase
-      this.face.alpha = 1;
-
-      const eased = easeInOut(t);
-      // A card that turned where the pack was rises onto its stand with the wipe
-      if (this.lifts) {
-        this.node.y = this.spinY + (this.toY - this.spinY) * eased;
-      }
-      this.drawBackMask(1 - eased);
-      // Sparks ride the wipe edge, which is the top of what the back still
-      // covers: `height / 2 - covered`. Measuring them from the opposite edge
-      // sent them up while the wipe went down.
-      this.drawSparks(-height / 2 + height * eased, Math.sin(Math.PI * t));
-      this.bloom.alpha = reveal.bloomAlpha * (1 - eased);
-      this.rim.alpha = reveal.rimAlpha * (1 - eased);
-      this.rim.scale.x = this.rim.baseScaleX;
-      return;
-    }
-
-    if (kind === 'beam') {
-      const eased = easeInOut(t);
-      this.drawSparks(0, 0);
-      this.drawBeam(eased, eased);
-      this.halo.alpha = eased * reveal.haloAlpha;
       return;
     }
 
@@ -573,7 +812,6 @@ export class RevealCard {
       this.halo.alpha = reveal.haloAlpha * landing;
       this.bloom.alpha = reveal.bloomAlpha * (1 - eased);
       this.pulse(Math.sin(Math.PI * landing) * 0.6);
-      this.drawSparks(0, 0);
       return;
     }
 
@@ -583,27 +821,206 @@ export class RevealCard {
     }
   }
 
+  /**
+   * Face down at rest, gathering itself before it turns — a card built with
+   * `useDepth`. It sways a little in perspective, a beam in its colour runs
+   * the edge faster and faster, the printed star and the halo fill with that
+   * colour, and towards the end it trembles. `level` runs 0..1 over the
+   * build-up and stays at 1 while the artwork is late; `clock` is ms since it
+   * began, so the sway and the beam carry on unbroken through the wait. `fx`
+   * is the mechanic's own numbers (`slice`).
+   */
+  charge(level, clock, fx, colors) {
+    const reveal = this.o.motion.reveal;
+    const energy = level * level;
+    this.focal = fx.focal * this.size.height;
+
+    const tilt = (fx.tiltDeg * Math.PI) / 180;
+    const sway = (2 * Math.PI * clock) / fx.tiltMs;
+    const yaw = tilt * Math.sin(sway);
+    const pitch = tilt * 0.45 * Math.cos(sway * 0.77);
+    this.turnedFrom = {yaw, pitch};
+    this.pose(yaw, pitch, 1 + 0.02 * energy);
+
+    const shake = fx.tremble * clamp((level - 0.55) / 0.45, 0, 1);
+    this.node.x = this.restX + shake * Math.sin(clock * 0.083);
+    this.node.y = this.spinY + shake * Math.cos(clock * 0.107);
+
+    const flicker = 1 + 0.12 * energy * Math.sin(clock * 0.021);
+    this.bloom.tint = mixNumbers(colors.seam, colors.glow, energy);
+    this.bloom.alpha = reveal.bloomAlpha * (0.3 + 0.45 * energy) * flicker;
+    this.rim.alpha = reveal.rimAlpha * (0.45 + 0.55 * energy);
+    this.halo.alpha = Math.min(
+      1,
+      reveal.haloAlpha * fx.chargeHalo * energy * flicker,
+    );
+    this.emblem.tint = colors.glow;
+    this.emblem.alpha = Math.min(1, fx.emblemAlpha * (0.2 + 0.8 * energy) * flicker);
+
+    // Laps pick up speed: the beam is slow while the card settles and racing
+    // by the time it turns
+    const laps = fx.chargeLaps * Math.pow(clock / fx.chargeMs, 1.5);
+    this.drawBeam(laps % 1, 0.2 + 0.8 * energy);
+  }
+
+  /** The turn starts from wherever the sway left the card, so it never jumps. */
+  beginFlip() {
+    this.flipFrom = this.turnedFrom ?? {yaw: 0, pitch: 0};
+  }
+
+  /**
+   * Half a turn in perspective, the card coming up towards the eye as it goes
+   * and settling back as the artwork squares up. Its own light flares as the
+   * edge passes — the moment the colour is the whole card — and the beam
+   * hands its light over to the turn.
+   */
+  flipOver(t, fx, colors) {
+    const reveal = this.o.motion.reveal;
+    const from = this.flipFrom ?? {yaw: 0, pitch: 0};
+    const eased = easeInOut(t);
+    const arc = Math.sin(Math.PI * t);
+    const yaw = from.yaw + (Math.PI - from.yaw) * eased;
+    this.pose(yaw, from.pitch * (1 - eased), 1 + fx.flipLift * arc);
+    this.node.x = this.restX;
+    this.node.y = this.spinY - this.size.height * fx.flipRise * arc;
+
+    const edge = Math.exp(-Math.pow((t - 0.5) / 0.2, 2));
+    this.bloom.tint = colors.glow;
+    this.bloom.alpha = Math.min(
+      1,
+      reveal.bloomAlpha * (0.75 + fx.flipFlare * edge),
+    );
+    this.bloom.scale.set(
+      this.bloomBase.x * (1 + 0.18 * edge),
+      this.bloomBase.y * (1 + 0.18 * edge),
+    );
+    // Squeezed edge-on, the tight rim is a bar of light taller than the card
+    this.rim.alpha = reveal.rimAlpha * (0.3 + 0.7 * Math.abs(Math.cos(yaw)));
+    this.halo.alpha = Math.min(
+      1,
+      reveal.haloAlpha * (fx.chargeHalo + (1 - fx.chargeHalo) * eased),
+    );
+    this.emblem.alpha = fx.emblemAlpha * clamp(1 - eased * 2.2, 0, 1);
+    this.drawBeam(0, clamp(1 - t * 2.5, 0, 1));
+  }
+
+  /**
+   * The artwork squared up, landing: a push out and back, its outline
+   * swelling, the highlight crossing it and glints catching on it one after
+   * another. `elapsed` is ms since it landed. The meshes hand over to the flat
+   * face at the first frame — the same pixels, square — so the card at rest
+   * is the one every mechanic ends on.
+   */
+  land(t, elapsed, fx) {
+    const reveal = this.o.motion.reveal;
+    if (!this.landed) {
+      this.squareUp();
+    }
+    const push = clamp(t / 0.5, 0, 1);
+    this.setScale(1 + fx.landPunch * Math.sin(Math.PI * push) * (1 - push * 0.4));
+    if (this.lifts) {
+      this.node.y = this.spinY + (this.toY - this.spinY) * easeInOut(t);
+    }
+    this.pulse(Math.sin(Math.PI * clamp(t / 0.75, 0, 1)));
+    this.sweepSheen(clamp((elapsed - 60) / reveal.sheenMs, 0, 1));
+    this.twinkle(elapsed, fx);
+    this.bloom.alpha = reveal.bloomAlpha * (0.2 + 0.8 * Math.pow(1 - t, 2));
+    this.bloom.scale.set(this.bloomBase.x, this.bloomBase.y);
+    this.drawBeam(0, clamp(t * 2, 0, 1));
+  }
+
+  /** From the meshes to the flat card: artwork up, glows square, no projection. */
+  squareUp() {
+    this.landed = true;
+    this.projection = null;
+    this.backMesh.visible = false;
+    this.faceMesh.visible = false;
+    this.emblem.visible = false;
+    this.face.alpha = 1;
+    this.node.x = this.restX;
+    this.rim.position.set(0, 0);
+    this.halo.position.set(0, 0);
+    this.rim.scale.set(this.glowBase.rim.x, this.glowBase.rim.y);
+    this.halo.scale.set(this.glowBase.halo.x, this.glowBase.halo.y);
+  }
+
+  /**
+   * Glints on the artwork: four-pointed stars that flash up and go, one after
+   * another, all of them over within the landing. Scattered by a fixed noise,
+   * so the same card catches the light in the same places every time.
+   */
+  twinkle(elapsed, fx) {
+    const count = Math.max(0, Math.round(fx.twinkles));
+    while (this.twinkles.length < count) {
+      const glint = new Sprite(this.twinkleTexture);
+      glint.anchor.set(0.5);
+      glint.blendMode = 'add';
+      glint.visible = false;
+      this.turn.addChild(glint);
+      this.twinkles.push(glint);
+    }
+    const {width, height} = this.size;
+    const span = Math.max(0, fx.landMs - fx.twinkleMs - 80);
+    this.twinkles.forEach((glint, i) => {
+      const start = 60 + (count > 1 ? (span * i) / (count - 1) : 0);
+      const u = (elapsed - start) / fx.twinkleMs;
+      if (i >= count || u <= 0 || u >= 1) {
+        glint.visible = false;
+        return;
+      }
+      const flash = Math.sin(Math.PI * u);
+      const size = fx.twinkleSize * (0.7 + 0.5 * Math.abs(jitterAt(i, 7.7))) * flash;
+      glint.visible = true;
+      glint.position.set(
+        width * 0.4 * jitterAt(i, 2.3),
+        height * 0.42 * jitterAt(i, 5.1),
+      );
+      glint.width = size;
+      glint.height = size;
+      glint.rotation = i + u * 0.6;
+      glint.alpha = flash;
+      glint.tint = this.colors.spark;
+    });
+  }
+
+  hideTwinkles() {
+    for (const glint of this.twinkles ?? []) {
+      glint.visible = false;
+    }
+  }
+
   /** Puts the revealed card back inside the pack so a replay starts clean. */
   rewind(rect) {
     if (!this.node) {
       return;
     }
     this.node.alpha = 0;
+    this.node.x = this.restX;
     this.node.y = rect.top + rect.height / 2;
     this.node.scale.set(1);
     this.bloom.alpha = 0;
+    this.bloom.tint = 0xffffff;
+    this.bloom.scale.set(this.bloomBase.x, this.bloomBase.y);
     this.rim.alpha = 0;
+    this.rim.position.set(0, 0);
     this.rim.scale.set(this.glowBase.rim.x, this.glowBase.rim.y);
     this.halo.alpha = 0;
+    this.halo.position.set(0, 0);
     this.halo.scale.set(this.glowBase.halo.x, this.glowBase.halo.y);
     this.sheen.visible = false;
     this.turn.scale.x = 1;
     this.back.tint = 0xffffff;
-    this.sparks.clear();
     this.beam.clear();
     this.hideRibbon();
     this.face.alpha = 0;
     this.drawBackMask(1);
+    if (this.backMesh) {
+      this.landed = false;
+      this.turnedFrom = null;
+      this.emblem.alpha = 0;
+      this.hideTwinkles();
+      this.pose(0, 0, 1);
+    }
   }
 
   /**
@@ -616,7 +1033,7 @@ export class RevealCard {
     this.node.alpha = 1;
     this.toY = this.restingY();
     // Where the card turns: at rest, or where the pack was — then it lifts
-    // onto its stand during the unveil (see `reveal`)
+    // onto its stand as it lands (see `land`)
     this.spinY =
       this.o.layout.card.spinAt === 'pack' && rect
         ? rect.top + rect.height / 2
@@ -625,7 +1042,7 @@ export class RevealCard {
     this.clip(cutY);
   }
 
-  /** Whether the card still has to rise onto its stand after the spin. */
+  /** Whether the card still has to rise onto its stand after it turns. */
   get lifts() {
     return this.spinY !== undefined && this.spinY !== this.toY;
   }
@@ -658,9 +1075,8 @@ export class RevealCard {
     this.turn.mask = null;
     this.back.tint = 0xffffff;
     this.face.alpha = 1;
-    // Nothing of the blank back left to wipe away
+    // The back is out of sight for good
     this.drawBackMask(0);
-    this.sparks.clear();
     this.beam.clear();
     this.hideRibbon();
   }
@@ -733,6 +1149,13 @@ export class RevealCard {
     for (const texture of textures) {
       texture?.destroy(true);
     }
+    // Baked for this card's size: the next build bakes its own
+    this.faceBaked?.destroy(true);
+    this.twinkleTexture?.destroy(true);
+    this.faceBaked = null;
+    this.backMesh = null;
+    this.faceMesh = null;
+    this.twinkles = [];
     this.node = null;
   }
 }

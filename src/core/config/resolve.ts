@@ -47,9 +47,6 @@ function applySpeed(motion: ResolvedOptions['motion']): ResolvedOptions['motion'
     open: {...motion.open, ms: scale(motion.open.ms)},
     reveal: {
       ...motion.reveal,
-      spinMs: scale(motion.reveal.spinMs),
-      unveilMs: scale(motion.reveal.unveilMs),
-      beamMs: scale(motion.reveal.beamMs),
       holdMs: scale(motion.reveal.holdMs),
       artWaitSpinMs: scale(motion.reveal.artWaitSpinMs),
     },
@@ -141,6 +138,7 @@ export function resolveOptions(options: PackOpenerOptions): ResolvedOptions {
       ? merge(preset.interaction, options.interaction)
       : undefined,
     hint: preset.hint ? merge(preset.hint, options.hint) : undefined,
+    slice: preset.slice ? merge(preset.slice, options.slice) : undefined,
     charge: preset.charge ? merge(preset.charge, options.charge) : undefined,
     burst: preset.burst ? merge(preset.burst, options.burst) : undefined,
     carousel: preset.carousel
@@ -151,6 +149,21 @@ export function resolveOptions(options: PackOpenerOptions): ResolvedOptions {
   // Read before `applySpeed`, which bakes the factor in and resets it to 1
   const speed = resolved.motion.speed > 0 ? resolved.motion.speed : 1;
   resolved.motion = applySpeed(resolved.motion);
+  if (resolved.slice) {
+    resolved.slice = scaleDurations(resolved.slice, speed, [
+      'floatMs',
+      'foilEveryMs',
+      'foilMs',
+      'sparkLifeMs',
+      'chargeMs',
+      'chargeWaitMs',
+      'tiltMs',
+      'flipMs',
+      'landMs',
+      'twinkleMs',
+      'emberMs',
+    ]);
+  }
   if (resolved.charge) {
     resolved.charge = scaleDurations(resolved.charge, speed, [
       'holdMs',

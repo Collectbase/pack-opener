@@ -91,6 +91,23 @@ export function pointAt(path, distance) {
   };
 }
 
+/**
+ * A point of a flat card turned about its upright axis by `yaw` and tipped
+ * about its crosswise one by `pitch`, seen through a lens `focal` px from it.
+ * The card's centre is the origin both ways: `x`, `y` are the point on the
+ * card, what comes back is where it lands on the stage around that centre.
+ * Scaling alone reads as a card getting thinner; the edge turning away
+ * getting shorter is what reads as a turn.
+ */
+export function projectPoint(x, y, yaw, pitch, focal) {
+  const x1 = x * Math.cos(yaw);
+  const z1 = x * Math.sin(yaw);
+  const y2 = y * Math.cos(pitch) - z1 * Math.sin(pitch);
+  const z2 = y * Math.sin(pitch) + z1 * Math.cos(pitch);
+  const k = focal / Math.max(focal * 0.2, focal + z2);
+  return {x: x1 * k, y: y2 * k};
+}
+
 /* ─── geometry ─────────────────────────────────────────────────────────── */
 
 /**
@@ -100,21 +117,23 @@ export function pointAt(path, distance) {
  * for instance — derives them from this box rather than redoing it.
  *
  * `stage` is what the host keeps for itself (`layout.stage`): the pack is
- * sized and centred in the band left free, by the same rule as the card — a
- * band claimed at the top buys its room by making the pack smaller around
- * the middle of the stage, never by pushing it down onto what the host
- * draws below (see `RevealCard.restingY`). `anchorY`, when given, is where
- * the pack's centre goes instead — a scene anchoring the pack to the card's
- * resting place passes it, sized on a first pass without it.
+ * sized against the band left free, and centred on the stage as long as that
+ * keeps it out of the bands — lower, in the middle of the free band, when the
+ * band at the top would cover it. Its size is not held to the card's rule of
+ * staying off the lower half (see `RevealCard.restingY`): that rule is for
+ * what the host hangs under the card once it is out, and nothing hangs under
+ * a sealed pack. Held to it, a title band at the top shrank the pack by twice
+ * its own height. `anchorY`, when given, is where the pack's centre goes
+ * instead — a scene anchoring the pack to the card's resting place passes it,
+ * sized on a first pass without it.
  */
 export function computePackRect(width, height, aspect, pack, stage, anchorY) {
   const reservedTop = stage?.reserveTop ?? 0;
   const reservedBottom = stage?.reserveBottom ?? 0;
   const free = Math.max(1, height - reservedTop - reservedBottom);
-  const room = Math.min(free, height - 2 * reservedTop);
 
   const maxWidth = width * pack.widthRatio;
-  const maxHeight = room * pack.heightRatio;
+  const maxHeight = free * pack.heightRatio;
   let w = maxWidth;
   let h = w / aspect;
   if (h > maxHeight) {
@@ -124,10 +143,12 @@ export function computePackRect(width, height, aspect, pack, stage, anchorY) {
   const left = (width - w) / 2;
   const centredInFree = reservedTop + (free - h) / 2 + free * pack.offsetY;
   const centredOnStage = (height - h) / 2 + height * pack.offsetY;
-  const top =
-    anchorY === undefined
-      ? Math.min(centredInFree, centredOnStage)
-      : anchorY - h / 2;
+  const centred = clamp(
+    Math.min(centredInFree, centredOnStage),
+    reservedTop,
+    reservedTop + free - h,
+  );
+  const top = anchorY === undefined ? centred : anchorY - h / 2;
 
   return {
     left,

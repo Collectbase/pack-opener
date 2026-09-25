@@ -52,19 +52,31 @@ export interface ThemeOptions {
   glow?: Color;
   /** Thin light rim hugging the card silhouette. */
   rim?: Color;
-  /** Soft radial bloom behind the card while it is still blank. */
+  /** Soft radial bloom behind the card while it is still face down. */
   bloom?: Color;
-  /** Beam that runs around the card outline, and the sparks it throws. */
+  /** Beam that runs around the card outline. */
   beam?: Color;
+  /** The white of the small lights: hot sparks, glints on the artwork, embers. */
   spark?: Color;
+  /**
+   * The light of the cut (`slice`): the sparks off the blade, the light
+   * pouring out of the opened pack, the warm bloom behind the rising card.
+   */
+  seam?: Color;
   /** Comet that mimes the swipe before the first touch. */
   hint?: Color;
-  /** Blank slab the card shows while it spins, top to bottom, plus its sheen. */
+  /**
+   * The card's back, top to bottom, plus its sheen. `line` engraves it with
+   * fine cross-hatching and `emblem` prints a frame and a star in the middle;
+   * `transparent` leaves either out, and with both out the back is a plain slab.
+   */
   cardBack?: {
     top?: Color;
     mid?: Color;
     bottom?: Color;
     sheen?: Color;
+    line?: Color;
+    emblem?: Color;
   };
   /** Corner radius of the card, in css px. */
   cornerRadius?: number;
@@ -110,22 +122,19 @@ export interface MotionOptions {
     uncutFade?: number;
   };
   reveal?: {
-    spinMs?: number;
-    unveilMs?: number;
-    beamMs?: number;
     /** Fade-in of the stand under the card, once the card has landed. */
     pedestalMs?: number;
     /** The card sits still with its halo before the host takes over. */
     holdMs?: number;
-    /** Full turns the blank card makes while it floats. */
-    spinTurns?: number;
+    /** Length of the beam's tail, as a share of the outline. */
     beamTail?: number;
-    sparks?: number;
-    /** How thin the card gets edge-on. 0 is a perfect edge and reads as a gap. */
+    /**
+     * The flat turn (`carousel`): how thin the card gets edge-on — 0 is a
+     * perfect edge and reads as a gap — how much darker its back goes there,
+     * and the bloom while it turns, this at the edge and full face-on.
+     */
     spinFlatness?: number;
-    /** How much darker the card back goes edge-on. */
     spinShade?: number;
-    /** Bloom while the card turns: this at the edge, full face-on. */
     spinBloom?: number;
     /** Peak opacity of the three glows. */
     bloomAlpha?: number;
@@ -148,14 +157,7 @@ export interface MotionOptions {
      */
     beamStyle?: 'segments' | 'ribbon';
     outlineDetail?: number;
-    /** Sparks thrown by the wipe: base size, extra size from jitter, opacity. */
-    sparkSize?: number;
-    sparkJitter?: number;
-    sparkAlpha?: number;
-    /** How far sparks scatter from the wipe edge, in css px. */
-    sparkSpreadX?: number;
-    sparkSpreadY?: number;
-    /** One turn of the card while it waits for late artwork. */
+    /** One turn of the card while it waits for late artwork (`carousel`). */
     artWaitSpinMs?: number;
   /**
    * The card's own flourish: how far its rim and halo swell on a pulse, how
@@ -238,17 +240,25 @@ export interface LayoutOptions {
    * Card size relative to the pack. It has to read as something that came out
    * of the wrapper, so the width is capped against the pack, not the screen.
    * `spinAt: 'pack'` keeps the card where the pack was while it turns and
-   * lifts it onto its stand as the artwork is unveiled; `rest` (the default)
-   * slides it straight to its resting place. Slice only — burst assembles the
-   * card at rest either way.
+   * lifts it onto its stand as it lands; `rest` (the default) slides it
+   * straight to its resting place. Slice only — burst assembles the card at
+   * rest either way.
    * The aspect ratio is always kept — the cap moves both sides.
    */
   card?: {
     heightRatio?: number;
     packWidthRatio?: number;
-    /** Fallback aspect until the artwork's own ratio is known. */
+    /**
+     * The shape the card is built to while its artwork is still on its way;
+     * once the artwork arrives the card is built again to its own shape, as
+     * long as its face has not been shown yet.
+     */
     aspect?: number;
-    /** Widest the card may get, whatever the artwork's ratio says. */
+    /**
+     * Widest the card may get, whatever the artwork's ratio says — artwork
+     * wider than this has its sides cut. High in every preset, so the card
+     * takes the artwork's own shape.
+     */
     maxRatio?: number;
     spinAt?: 'rest' | 'pack';
   };
@@ -286,7 +296,7 @@ export interface LayoutOptions {
 export interface HintOptions {
   /** Where the streak sits inside the pack, top-down. */
   lineRatio?: number;
-  /** Share of the pack width the streak travels. */
+  /** Share of the pack width the streak travels — 1 is edge to edge. */
   sweep?: number;
   /** Radius of the comet head; the tail tapers down from here. */
   headRadius?: number;
@@ -639,6 +649,96 @@ export interface RestOptions {
   pedestal?: {left: number; width: number; bottom: number};
 }
 
+/**
+ * `slice` only: the life of the pack and the light of the cut, and how the
+ * card turns over. The untouched pack floats and catches the light; the cut
+ * glows and throws sparks; the opened pack pours light; the card gathers
+ * itself face down in its colour, turns over in perspective and lands.
+ */
+export interface SliceOptions {
+  /** How far the untouched pack floats, in pack heights, and one float up and back. */
+  floatAmp?: number;
+  floatMs?: number;
+  /**
+   * Light crossing the foil while the pack waits: how often it comes round,
+   * how long one pass takes, how bright it is, how wide in pack widths and
+   * its slant in radians.
+   */
+  foilEveryMs?: number;
+  foilMs?: number;
+  foilAlpha?: number;
+  foilWidth?: number;
+  foilTilt?: number;
+  /** Glow round the pack's own outline: opacity, and how far it reaches in css px. */
+  backlightAlpha?: number;
+  backlightSpread?: number;
+  /** The hot point under the blade, css px across. */
+  bladeGlow?: number;
+  /**
+   * Sparks: how many the blade throws per css px it travels, their speed in
+   * px/s, life, size in css px, and the pull down on them in px/s².
+   */
+  bladeSparks?: number;
+  sparkSpeed?: number;
+  sparkLifeMs?: number;
+  sparkSize?: number;
+  sparkGravity?: number;
+  /**
+   * The seal giving: sparks thrown off the whole cut, and how hard the pack
+   * jolts, as a share of its size.
+   */
+  burstSparks?: number;
+  joltScale?: number;
+  /** Light pouring out of the opened pack, and the warm bloom behind the rising card. */
+  pourAlpha?: number;
+  riseBloom?: number;
+  /**
+   * The card gathering itself face down: how long, one more loop of it for
+   * as long as the artwork is late, the laps the beam makes, how full the
+   * halo gets (a share of `haloAlpha`), how bright the printed star burns,
+   * the sway in degrees and one sway in ms, and how hard it trembles at the
+   * end, in css px.
+   */
+  chargeMs?: number;
+  chargeWaitMs?: number;
+  chargeLaps?: number;
+  chargeHalo?: number;
+  emblemAlpha?: number;
+  tiltDeg?: number;
+  tiltMs?: number;
+  tremble?: number;
+  /**
+   * The turn: how long, how far the card comes up towards the eye (a share
+   * of its size) and rises (card heights), how hard its light flares as the
+   * edge passes, and the lens, in card heights.
+   */
+  flipMs?: number;
+  flipLift?: number;
+  flipRise?: number;
+  flipFlare?: number;
+  focal?: number;
+  /**
+   * The landing: how long, the push, how hard the stage knocks with it in
+   * css px, and the glints that catch on the artwork — how many, their size
+   * in css px and each one's life.
+   */
+  landMs?: number;
+  landPunch?: number;
+  landShake?: number;
+  twinkles?: number;
+  twinkleSize?: number;
+  twinkleMs?: number;
+  /**
+   * Embers drifting up past the card once it is down: how many, over how
+   * long, their size in css px, how high they rise in card heights, opacity.
+   */
+  embers?: number;
+  emberMs?: number;
+  emberSize?: number;
+  emberRise?: number;
+  emberAlpha?: number;
+}
+
 export interface PackOpenerOptions {
   variant?: VariantName;
   preset?: PresetName;
@@ -650,6 +750,7 @@ export interface PackOpenerOptions {
   rest?: RestOptions;
   hint?: HintOptions;
   performance?: PerformanceOptions;
+  slice?: SliceOptions;
   charge?: ChargeOptions;
   burst?: BurstOptions;
   carousel?: CarouselOptions;
@@ -669,7 +770,13 @@ export type Resolved<T> = {
  * animation it is not.
  */
 /** Groups that belong to one mechanic rather than to every scene. */
-type VariantGroups = 'interaction' | 'hint' | 'charge' | 'burst' | 'carousel';
+type VariantGroups =
+  | 'interaction'
+  | 'hint'
+  | 'slice'
+  | 'charge'
+  | 'burst'
+  | 'carousel';
 
 export type ResolvedOptions = Resolved<
   Required<Omit<PackOpenerOptions, VariantGroups | 'assets' | 'rest'>>
@@ -692,6 +799,7 @@ export type ResolvedOptions = Resolved<
   };
   interaction?: Resolved<InteractionOptions>;
   hint?: Resolved<HintOptions>;
+  slice?: Resolved<SliceOptions>;
   charge?: Resolved<ChargeOptions>;
   burst?: Resolved<BurstOptions>;
   carousel?: Resolved<CarouselOptions>;

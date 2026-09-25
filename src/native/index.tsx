@@ -224,6 +224,9 @@ const PackOpener = forwardRef<PackOpenerHandle, PackOpenerProps>(
             setCutting(false);
             onInteractionCancel?.();
             break;
+          case MESSAGES.IMPACT:
+            onHaptic?.('heavy');
+            break;
           case MESSAGES.ERROR:
             setFailed(true);
             onError?.(String(data.message));

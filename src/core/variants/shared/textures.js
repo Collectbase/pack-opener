@@ -1,11 +1,12 @@
 /**
- * Canvas-drawn textures a scene needs but Pixi cannot express: the blank card
- * back, the radial bloom and the halo that hugs the card. Each is rasterised
- * once and handed over as a texture, so options baked in here only change on a
+ * Canvas-drawn textures a scene needs but Pixi cannot express: the card back,
+ * the radial bloom, the halo that hugs the card, the light round the pack's own
+ * outline and the small lights thrown about the stage. Each is rasterised once
+ * and handed over as a texture, so options baked in here only change on a
  * rebuild. Shared by every mechanic — they all reveal the same card.
  */
 import {Texture} from 'pixi.js';
-import {withAlpha} from '../../runtime/color';
+import {alphaOf, withAlpha} from '../../runtime/color';
 
 function makeCanvas(w, h) {
   const canvas = document.createElement('canvas');
@@ -15,6 +16,69 @@ function makeCanvas(w, h) {
   const ctx = canvas.getContext('2d');
   ctx.scale(dpr, dpr);
   return {canvas, ctx};
+}
+
+/** The whole image: what the pixels say when they cannot be read. */
+export const WHOLE = {left: 0, top: 0, right: 1, bottom: 1};
+
+/**
+ * Where the pack itself is in its artwork, as fractions of the image: a
+ * pack image carries transparent margins, and laid out by its edges the
+ * pack comes out smaller than asked, while a reflection that starts at the
+ * image's edge floats a margin's width below the pack, twice over. Read
+ * once off the pixels, coarsely; the whole image when they cannot be read
+ * (a tainted canvas).
+ */
+export function contentBoundsOf(texture) {
+  try {
+    const source = texture?.source?.resource;
+    if (!source || !source.width) return WHOLE;
+    const w = 128;
+    const h = 256;
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d', {willReadFrequently: true});
+    ctx.drawImage(source, 0, 0, w, h);
+    const data = ctx.getImageData(0, 0, w, h).data;
+    let left = w;
+    let right = -1;
+    let top = h;
+    let bottom = -1;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (data[(y * w + x) * 4 + 3] <= 24) continue;
+        if (x < left) left = x;
+        if (x > right) right = x;
+        if (y < top) top = y;
+        if (y > bottom) bottom = y;
+      }
+    }
+    if (right < 0) return WHOLE;
+    return {left: left / w, top: top / h, right: (right + 1) / w, bottom: (bottom + 1) / h};
+  } catch {
+    return WHOLE;
+  }
+}
+
+/** A colour worth drawing: `transparent` or zero alpha turns a layer off. */
+const shows = color => alphaOf(color, 0) > 0;
+
+/** Four- or more-pointed star, points out along the axes first. */
+function starPath(ctx, cx, cy, outer, inner, points = 4) {
+  ctx.beginPath();
+  for (let i = 0; i < points * 2; i++) {
+    const angle = -Math.PI / 2 + (i * Math.PI) / points;
+    const r = i % 2 === 0 ? outer : inner;
+    const x = cx + Math.cos(angle) * r;
+    const y = cy + Math.sin(angle) * r;
+    if (i === 0) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  }
+  ctx.closePath();
 }
 
 /**
@@ -65,7 +129,87 @@ function roundRectPath(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-/** Blank slab the card shows while it spins. */
+/**
+ * The printed side of the back: fine cross-hatching the way a banknote is
+ * engraved, a double frame and a star in the middle. Drawn only in the colours
+ * the theme gives it — a back with no `line` or `emblem` colour stays a plain
+ * slab.
+ */
+function drawBackPrint(ctx, w, h, radius, back) {
+  if (!shows(back.line) && !shows(back.emblem)) {
+    return;
+  }
+  if (shows(back.line)) {
+    ctx.save();
+    ctx.strokeStyle = back.line;
+    ctx.lineWidth = 0.6;
+    const step = Math.max(4, w / 30);
+    ctx.beginPath();
+    for (let d = -h; d < w + h; d += step) {
+      ctx.moveTo(d, 0);
+      ctx.lineTo(d + h, h);
+      ctx.moveTo(d + h, 0);
+      ctx.lineTo(d, h);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Darker towards the edges, so the middle reads as lit
+  const vignette = ctx.createRadialGradient(
+    w / 2,
+    h / 2,
+    Math.min(w, h) * 0.2,
+    w / 2,
+    h / 2,
+    Math.max(w, h) * 0.7,
+  );
+  vignette.addColorStop(0, 'rgba(0,0,0,0)');
+  vignette.addColorStop(1, 'rgba(0,0,0,0.45)');
+  ctx.fillStyle = vignette;
+  ctx.fillRect(0, 0, w, h);
+
+  if (!shows(back.emblem)) {
+    return;
+  }
+  const emblem = alphaOf(back.emblem, 1);
+  ctx.save();
+  ctx.strokeStyle = back.emblem;
+  for (const [inset, width, alpha] of [
+    [0.055, 1.2, 0.5],
+    [0.085, 0.7, 0.25],
+  ]) {
+    const d = w * inset;
+    ctx.globalAlpha = alpha;
+    ctx.lineWidth = width;
+    roundRectPath(ctx, d, d, w - d * 2, h - d * 2, Math.max(2, radius - d * 0.6));
+    ctx.stroke();
+  }
+
+  const cx = w / 2;
+  const cy = h / 2;
+  // A diamond round the star, and a thin circle round both
+  ctx.globalAlpha = 0.28;
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.arc(cx, cy, w * 0.27, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.globalAlpha = 0.6;
+  ctx.lineWidth = 1.3;
+  starPath(ctx, cx, cy, w * 0.21, w * 0.21 * 0.7, 4);
+  ctx.stroke();
+
+  const fill = ctx.createLinearGradient(0, cy - w * 0.16, 0, cy + w * 0.16);
+  fill.addColorStop(0, withAlpha(back.emblem, emblem));
+  fill.addColorStop(1, withAlpha(back.emblem, emblem * 0.45));
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = fill;
+  starPath(ctx, cx, cy, w * 0.16, w * 0.045, 4);
+  ctx.fill();
+  ctx.restore();
+}
+
+/** The card's back: the slab it shows until it turns over to its artwork. */
 export function makeCardBackTexture(w, h, theme) {
   const {canvas, ctx} = makeCanvas(w, h);
   roundRectPath(ctx, 0, 0, w, h, theme.cornerRadius);
@@ -78,6 +222,8 @@ export function makeCardBackTexture(w, h, theme) {
   base.addColorStop(1, back.bottom);
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, w, h);
+
+  drawBackPrint(ctx, w, h, theme.cornerRadius, back);
 
   const sheen = ctx.createLinearGradient(0, h, w, 0);
   sheen.addColorStop(0, withAlpha(back.sheen, 0));
@@ -234,6 +380,141 @@ export function makeHaloTexture(w, h, color, spread, radius) {
     ctx.shadowBlur = spread * (0.45 + i * 0.35);
     roundRectPath(ctx, spread, spread, w, h, radius);
     ctx.fill();
+  }
+  return Texture.from(canvas);
+}
+
+/**
+ * Light round the pack's own outline rather than round its box: the
+ * artwork's alpha thrown out as a white shadow, for the caller to tint. Only
+ * the shadow lands on the canvas — the artwork is drawn off it — so none of
+ * the pack's colours leak into the light. `width` and `height` are the size
+ * the artwork is drawn at; the texture is `spread` larger on every side. At
+ * one pixel per css px on purpose: the softness is the point, and canvas
+ * shadows ignore the transform a device-pixel canvas would need. Null when
+ * the pixels cannot be read.
+ */
+export function makeSilhouetteGlowTexture(texture, width, height, spread) {
+  const source = texture?.source?.resource;
+  if (!source || !source.width) {
+    return null;
+  }
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.ceil(width + spread * 2));
+    canvas.height = Math.max(1, Math.ceil(height + spread * 2));
+    const ctx = canvas.getContext('2d');
+    const away = canvas.width * 2;
+    ctx.shadowColor = '#ffffff';
+    ctx.shadowOffsetX = away;
+    for (let i = 0; i < 3; i++) {
+      ctx.shadowBlur = spread * (0.3 + i * 0.35);
+      ctx.drawImage(source, spread - away, spread, width, height);
+    }
+    // Hollow: the light is round the pack, none of it under it. A cut opens
+    // the pack onto the stage behind it, and light hidden under the foil
+    // showed through the slit as a line
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.drawImage(source, spread, spread, width, height);
+    return Texture.from(canvas);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A round point of light that fades to nothing at its edge: the head of a
+ * spark, an ember, the glow under the blade. White, for the caller to tint.
+ */
+export function makeSoftDotTexture(size) {
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const c = size / 2;
+  const gradient = ctx.createRadialGradient(c, c, 0, c, c, c);
+  gradient.addColorStop(0, 'rgba(255,255,255,1)');
+  gradient.addColorStop(0.25, 'rgba(255,255,255,0.75)');
+  gradient.addColorStop(0.6, 'rgba(255,255,255,0.18)');
+  gradient.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+  return Texture.from(canvas);
+}
+
+/**
+ * The glint that catches on a glossy card: four thin points of light with a
+ * pair of shorter ones between them, pinched at the core. White, for the
+ * caller to tint.
+ */
+export function makeTwinkleTexture(size) {
+  const {canvas, ctx} = makeCanvas(size, size);
+  const c = size / 2;
+  const rays = [
+    {angle: 0, length: 1, width: 0.045},
+    {angle: Math.PI / 2, length: 1, width: 0.045},
+    {angle: Math.PI / 4, length: 0.38, width: 0.03},
+    {angle: -Math.PI / 4, length: 0.38, width: 0.03},
+  ];
+  for (const ray of rays) {
+    for (const direction of [1, -1]) {
+      const length = c * ray.length * direction;
+      const width = c * ray.width;
+      const dx = Math.cos(ray.angle) * length;
+      const dy = Math.sin(ray.angle) * length;
+      const nx = -Math.sin(ray.angle) * width;
+      const ny = Math.cos(ray.angle) * width;
+      const gradient = ctx.createLinearGradient(c, c, c + dx, c + dy);
+      gradient.addColorStop(0, 'rgba(255,255,255,1)');
+      gradient.addColorStop(0.4, 'rgba(255,255,255,0.4)');
+      gradient.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.moveTo(c, c);
+      ctx.lineTo(c + dx * 0.12 + nx, c + dy * 0.12 + ny);
+      ctx.lineTo(c + dx, c + dy);
+      ctx.lineTo(c + dx * 0.12 - nx, c + dy * 0.12 - ny);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+  const core = ctx.createRadialGradient(c, c, 0, c, c, c * 0.16);
+  core.addColorStop(0, 'rgba(255,255,255,1)');
+  core.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = core;
+  ctx.fillRect(0, 0, size, size);
+  return Texture.from(canvas);
+}
+
+/** How many card widths the emblem's light spans — its sprite is sized by it. */
+export const EMBLEM_GLOW_SPAN = 0.7;
+
+/**
+ * The star printed on the card back, as light: the same shape at the same
+ * proportions, blurred out so it can burn through the print while the card
+ * charges. White, for the caller to tint.
+ */
+export function makeEmblemGlowTexture(size) {
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const c = size / 2;
+  // The printed star is 0.16 card widths out and the diamond 0.21
+  const unit = size / EMBLEM_GLOW_SPAN;
+  ctx.shadowColor = '#ffffff';
+  ctx.fillStyle = '#ffffff';
+  ctx.strokeStyle = '#ffffff';
+  for (let i = 0; i < 3; i++) {
+    ctx.shadowBlur = unit * (0.02 + i * 0.035);
+    starPath(ctx, c, c, unit * 0.16, unit * 0.045, 4);
+    ctx.fill();
+    ctx.lineWidth = unit * 0.012;
+    starPath(ctx, c, c, unit * 0.21, unit * 0.21 * 0.7, 4);
+    ctx.stroke();
   }
   return Texture.from(canvas);
 }

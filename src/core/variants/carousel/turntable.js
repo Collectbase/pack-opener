@@ -18,6 +18,7 @@
  */
 import {Container, PerspectiveMesh, Sprite, Texture} from 'pixi.js';
 import {clamp} from '../shared/geometry';
+import {contentBoundsOf} from '../shared/textures';
 
 const TWO_PI = Math.PI * 2;
 /** Grid of the perspective mesh: enough for the texture not to bend between vertices. */
@@ -49,49 +50,6 @@ function makeFadeTexture() {
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, 2, 256);
   return Texture.from(canvas);
-}
-
-/** The whole image: what the pixels say when they cannot be read. */
-const WHOLE = {left: 0, top: 0, right: 1, bottom: 1};
-
-/**
- * Where the pack itself is in its artwork, as fractions of the image: a
- * pack image carries transparent margins, and laid out by its edges the
- * pack comes out smaller than asked, while a reflection that starts at the
- * image's edge floats a margin's width below the pack, twice over. Read
- * once off the pixels, coarsely; the whole image when they cannot be read
- * (a tainted canvas).
- */
-export function contentBoundsOf(texture) {
-  try {
-    const source = texture?.source?.resource;
-    if (!source || !source.width) return WHOLE;
-    const w = 128;
-    const h = 256;
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d', {willReadFrequently: true});
-    ctx.drawImage(source, 0, 0, w, h);
-    const data = ctx.getImageData(0, 0, w, h).data;
-    let left = w;
-    let right = -1;
-    let top = h;
-    let bottom = -1;
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        if (data[(y * w + x) * 4 + 3] <= 24) continue;
-        if (x < left) left = x;
-        if (x > right) right = x;
-        if (y < top) top = y;
-        if (y > bottom) bottom = y;
-      }
-    }
-    if (right < 0) return WHOLE;
-    return {left: left / w, top: top / h, right: (right + 1) / w, bottom: (bottom + 1) / h};
-  } catch {
-    return WHOLE;
-  }
 }
 
 /** Whether `p` is inside the convex quad `q` (four corners in order). */

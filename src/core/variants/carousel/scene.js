@@ -23,8 +23,9 @@ import {toNumber} from '../../runtime/color';
 import {CardPedestal} from '../shared/pedestal';
 import {RevealCard} from '../shared/card';
 import {clamp, computePackRect, easeInOut, easeOut} from '../shared/geometry';
+import {contentBoundsOf} from '../shared/textures';
 import {Story} from './story';
-import {Turntable, contentBoundsOf, wrap} from './turntable';
+import {Turntable, wrap} from './turntable';
 
 /** How far outside a pack a tap still counts as being on it. */
 const TOUCH_SLOP = 12;
@@ -458,6 +459,11 @@ export class CarouselScene {
       this.card.build(rect);
     }
     this.card.place(rect);
+    this.standCard();
+  }
+
+  /** Where the card comes to rest, and its stand under it. */
+  standCard() {
     this.cardRect = this.card.bounds();
     this.pedestal.build(
       this.cardRect.left + this.cardRect.width / 2,
@@ -467,7 +473,11 @@ export class CarouselScene {
   }
 
   setCardTexture(texture) {
-    this.card.setTexture(texture);
+    // Built again to the artwork's shape, the card rests elsewhere: its rect
+    // and its stand follow
+    if (this.card.setTexture(texture) && this.cardRect) {
+      this.standCard();
+    }
   }
 
   setPedestalTexture(texture) {
