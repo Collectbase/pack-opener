@@ -184,13 +184,27 @@ export class RevealCard {
    * frame. So a card whose face has not been shown yet is built again to the
    * artwork's own shape. True when it was: the scene lays out again what it
    * placed against the card.
+   *
+   * `defer`: the card is on show face down, and built again in front of the
+   * player it would jump from one size to the other. It waits instead for
+   * the moment it turns edge-on in `flipOver`, where it has no width to be
+   * seen by and the face is about to show for the first time.
    */
-  setTexture(texture) {
+  setTexture(texture, {defer = false} = {}) {
     this.texture = texture;
     if (!this.face || !texture) {
       return false;
     }
-    if (this.face.alpha === 0 && !this.landed && this.misfits(texture)) {
+    if (
+      this.face.alpha === 0 &&
+      !this.landed &&
+      !this.turnedOver &&
+      this.misfits(texture)
+    ) {
+      if (defer) {
+        this.refitDue = true;
+        return false;
+      }
       this.refit();
       return true;
     }
@@ -231,9 +245,14 @@ export class RevealCard {
     const clipped = this.turn.mask === this.clipG;
     const {clipBottom, fromY, spinY} = this;
     const turnsAtPack = this.lifts;
+    // The turn's perspective is a multiple of the card's height; kept as one
+    const focalRatio = this.focal ? this.focal / this.size.height : null;
 
     this.destroy();
     this.build(this.rect);
+    if (focalRatio) {
+      this.focal = focalRatio * this.size.height;
+    }
     this.sceneRoot.setChildIndex(
       this.node,
       Math.min(layer, this.sceneRoot.children.length - 1),
@@ -873,6 +892,10 @@ export class RevealCard {
    * and settling back as the artwork squares up. Its own light flares as the
    * edge passes — the moment the colour is the whole card — and the beam
    * hands its light over to the turn.
+   *
+   * A card still waiting to be built to its artwork's shape (`setTexture`
+   * with `defer`) is built again on the frame it passes edge-on. True then:
+   * the scene lays out again what it placed against the card.
    */
   flipOver(t, fx, colors) {
     const reveal = this.o.motion.reveal;
@@ -880,6 +903,14 @@ export class RevealCard {
     const eased = easeInOut(t);
     const arc = Math.sin(Math.PI * t);
     const yaw = from.yaw + (Math.PI - from.yaw) * eased;
+    const edgeOnPassed = Math.cos(yaw) <= 0;
+    const refitted = edgeOnPassed && this.refitDue;
+    if (refitted) {
+      this.refitDue = false;
+      this.refit();
+    }
+    // From here the face is showing: artwork arriving now is not worth a jump
+    this.turnedOver = edgeOnPassed;
     this.pose(yaw, from.pitch * (1 - eased), 1 + fx.flipLift * arc);
     this.node.x = this.restX;
     this.node.y = this.spinY - this.size.height * fx.flipRise * arc;
@@ -902,6 +933,7 @@ export class RevealCard {
     );
     this.emblem.alpha = fx.emblemAlpha * clamp(1 - eased * 2.2, 0, 1);
     this.drawBeam(0, clamp(1 - t * 2.5, 0, 1));
+    return refitted;
   }
 
   /**
@@ -994,6 +1026,12 @@ export class RevealCard {
     if (!this.node) {
       return;
     }
+    // Wound back before it turned: built to its artwork now, out of sight
+    if (this.refitDue) {
+      this.refitDue = false;
+      this.refit();
+    }
+    this.turnedOver = false;
     this.node.alpha = 0;
     this.node.x = this.restX;
     this.node.y = rect.top + rect.height / 2;

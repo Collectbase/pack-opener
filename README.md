@@ -227,7 +227,7 @@ with `setOptions` before the second tap — has the whole float to do it in.
 
 ## Requirements
 
-- **Web**: `pixi.js` ^8 (≥ 8.3 for `carousel`, which draws its ring with `PerspectiveMesh`) and a WebGL-capable browser. `react` ^18 or ^19 for the
+- **Web**: `pixi.js` ^8.3 (`slice` turns its card and `carousel` draws its ring with `PerspectiveMesh`) and a WebGL-capable browser. `react` ^18 or ^19 for the
   `/react` entry.
 - **React Native**: 0.79 or newer (the package is resolved through `exports`),
   plus `react-native-webview` and `react-native-reanimated`. Pixi is *not*

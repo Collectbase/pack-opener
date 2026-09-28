@@ -288,11 +288,9 @@ export class PackScene {
   }
 
   setCardTexture(texture) {
-    // Built again to the artwork's shape, the card rests elsewhere: its stand
-    // follows
-    if (this.card.setTexture(texture) && this.card.placed) {
-      this.buildPedestal();
-    }
+    // Out of the pack the card is on show: it takes the artwork's shape as it
+    // turns edge-on (see `flip` in `update`), not in front of the player
+    this.card.setTexture(texture, {defer: this.card.placed});
     // Artwork that turns up mid-charge means the card turns over as this
     // stretch of the charge ends
     const anim = this.anim;
@@ -765,7 +763,11 @@ export class PackScene {
           this.colors,
         );
       } else if (anim.kind === 'flip') {
-        this.card.flipOver(t, fx, this.colors);
+        // Built again to the artwork's shape, the card rests elsewhere: its
+        // stand follows, still out of sight until the card lands
+        if (this.card.flipOver(t, fx, this.colors)) {
+          this.buildPedestal();
+        }
       } else if (anim.kind === 'land') {
         this.landClock += deltaMS;
         this.card.land(t, this.landClock, fx);

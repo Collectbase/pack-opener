@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.5.2
+
+**The card no longer jumps in size when its artwork arrives late.** Built to
+`layout.card.aspect` while its artwork was on the way, a card out of the pack
+was built again to the artwork's own shape there and then — in front of the
+player, face down, from one size to the other. A host that opens the pack on
+the backend when the lid comes off, and learns the card only then, saw it
+every time. The card now takes its shape as it turns edge-on in the flip,
+where it has no width to be seen by and its face shows for the first time;
+its stand is laid out again with it, out of sight until the card lands.
+Artwork that arrives after the card has turned no longer rebuilds it at all.
+`burst` and `carousel` are as they were.
+
+The peer dependency says what 0.5.0 already needed: `pixi.js` ^8.3, for the
+`PerspectiveMesh` slice turns its card with. It said ^8, so a host on Pixi
+8.0–8.2 installed without a word and failed in the browser; the package
+manager now warns at install instead.
+
 ## 0.5.1
 
 A host that scored `slice` with sound by 0.4's phases went quiet at the
