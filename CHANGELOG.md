@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.5.3
+
+**The card comes out of the pack as white light.** Face down, the `slice`
+card had a dark engraved back — cross-hatching, a frame and a star — and it
+read as a grey slab rising out of the pack. The `slice` preset's back is now a
+plain white card (`theme.cardBack` white to a cool off-white, a strong sheen,
+no `line` or `emblem`), and with no star printed on it `slice.emblemAlpha` is
+0. The pull's colour is where it was: the beam lapping the edge and the halo
+filling behind the card as it charges, then the flip. A host that wants the
+engraved back keeps it with `theme.cardBack` `{top: '#262b3d', mid:
+'#141825', bottom: '#0a0c13', sheen: 'rgba(255,255,255,0.10)', line:
+'rgba(170,186,255,0.09)', emblem: 'rgba(222,228,246,0.86)'}` and
+`slice.emblemAlpha` 0.95. `burst` and `carousel` are as they were.
+
 ## 0.5.2
 
 **The card no longer jumps in size when its artwork arrives late.** Built to

@@ -695,7 +695,8 @@ export interface SliceOptions {
   /**
    * The card gathering itself face down: how long, one more loop of it for
    * as long as the artwork is late, the laps the beam makes, how full the
-   * halo gets (a share of `haloAlpha`), how bright the printed star burns,
+   * halo gets (a share of `haloAlpha`), how bright the star printed by
+   * `theme.cardBack.emblem` burns (0 in `slice`, whose back is plain),
    * the sway in degrees and one sway in ms, and how hard it trembles at the
    * end, in css px.
    */
