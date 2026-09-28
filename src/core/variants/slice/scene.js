@@ -63,6 +63,7 @@ export class PackScene {
     this.dirty = true;
     this.chargeClock = 0;
     this.landClock = 0;
+    this.legacyUnveiled = false;
     // Pack fades in instead of popping: no white flash, no jump from a
     // placeholder drawn with different geometry
     this.intro = 0;
@@ -292,6 +293,12 @@ export class PackScene {
     if (this.card.setTexture(texture) && this.card.placed) {
       this.buildPedestal();
     }
+    // Artwork that turns up mid-charge means the card turns over as this
+    // stretch of the charge ends
+    const anim = this.anim;
+    if (this.card.hasArt && anim && (anim.kind === 'charge' || anim.kind === 'chargeHold')) {
+      this.announceLegacyUnveil(anim.duration - anim.elapsed);
+    }
   }
 
   setPedestalTexture(texture) {
@@ -353,6 +360,12 @@ export class PackScene {
         () => this.afterCharge(),
         !firstHold,
       );
+      // The last hold before the card gives up on its artwork: it turns over
+      // as this one ends, artwork or not. The wait is counted in wall time,
+      // which never runs slower than the scene's, so it is never a hold early
+      if (waited + this.o.slice.chargeWaitMs >= this.o.assets.card.timeoutMs) {
+        this.announceLegacyUnveil(this.o.slice.chargeWaitMs);
+      }
       return;
     }
     this.card.beginFlip();
@@ -593,6 +606,7 @@ export class PackScene {
     // the same charge) is not announced again
     if (!quiet) {
       this.emit(MESSAGES.PHASE, {name: kind, durationMs: duration});
+      this.announceLegacyPhase(kind, duration);
     }
     if (kind === 'runOut') {
       const n = this.trail.length;
@@ -621,6 +635,61 @@ export class PackScene {
     if (kind === 'retract') {
       this.retractFrom = this.openness;
     }
+  }
+
+  /**
+   * The phases 0.4 scored the ceremony by — `spin`, `spinHold`, `unveil`,
+   * `beam` — announced beside this ceremony's own for hosts written against
+   * them. Deprecated; they go in 0.6.
+   *
+   * A 0.4 score counts its leads to the landing from them: `spin + unveil +
+   * beam` after `spin`, `unveil + beam` after `unveil`, `beam` after `beam`,
+   * reading the lengths it was not told from `timeline`. The card landed as
+   * the beam ended. So each starts with a phase here and runs until the next
+   * one does — `spin` the lid, `unveil` the charge, `beam` the turn — and the
+   * card lands as the beam ends, as it did.
+   */
+  announceLegacyPhase(kind, duration) {
+    switch (kind) {
+      case 'open':
+        this.legacyUnveiled = false;
+        this.emit(MESSAGES.PHASE, {name: 'spin', durationMs: duration});
+        break;
+      case 'charge':
+        // Without its artwork the card may yet have to wait; the unveil comes
+        // once the artwork does
+        if (this.card.hasArt) {
+          this.announceLegacyUnveil(duration);
+        }
+        break;
+      case 'chargeHold':
+        this.emit(MESSAGES.PHASE, {name: 'spinHold', durationMs: duration});
+        break;
+      case 'flip':
+        // Not announced yet only when the artwork never came and the wait ran
+        // out before its last hold could tell
+        this.announceLegacyUnveil(0);
+        this.emit(MESSAGES.PHASE, {name: 'beam', durationMs: duration});
+        break;
+      default:
+        break;
+    }
+  }
+
+  /**
+   * `untilFlipMs` is what is left before the card turns over. Never less than
+   * a millisecond: a 0.4 score reads a length of 0 as "not given" and falls
+   * back to its own.
+   */
+  announceLegacyUnveil(untilFlipMs) {
+    if (this.legacyUnveiled) {
+      return;
+    }
+    this.legacyUnveiled = true;
+    this.emit(MESSAGES.PHASE, {
+      name: 'unveil',
+      durationMs: Math.max(1, Math.round(untilFlipMs)),
+    });
   }
 
   update(deltaMS) {

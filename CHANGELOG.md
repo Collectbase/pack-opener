@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.5.1
+
+A host that scored `slice` with sound by 0.4's phases went quiet at the
+reveal in 0.5.0: `spin`, `spinHold`, `unveil` and `beam` were gone, and with
+them `spinMs`, `unveilMs` and `beamMs` from `timeline`. They are announced
+again, beside the new ceremony's own phases, so a 0.4 score plays on the new
+ceremony as it is — the lid, the sweep, the impact and the magic where the
+card lands.
+
+Each starts with a phase of the new ceremony and lasts until the next one
+does: `spin` with `open`, `unveil` with `charge`, `beam` with `flip`, and
+`spinHold` with `chargeHold`. The card lands as `beam` ends, as it did in
+0.4, so a score that counts its leads to the landing from them — `spin +
+unveil + beam` after `spin`, `unveil + beam` after `unveil` — still lands
+them there. `timeline` carries `spinMs` (`motion.open.ms`), `unveilMs`
+(`slice.chargeMs`) and `beamMs` (`slice.flipMs`).
+
+A card still waiting for its artwork at the charge is not unveiled until the
+artwork arrives — mid-charge or mid-hold, with what is left before it turns
+over — or, if it never does, at the start of the last hold before the wait
+runs out. A 0.4 score's impact hits the landing either way; its sweep, cued
+from the unveil, peaks late after a wait, as it did in 0.4.
+
+What does not carry over: the swish a 0.4 score plays on each edge-on pass
+of the spinning card. The card no longer spins; it turns over once, in
+`flip`.
+
+The old names are deprecated and go in 0.6 — score by `open`, `charge`,
+`chargeHold`, `flip` and `land`, or by `impact` for the landing itself.
+
 ## 0.5.0
 
 `slice` has a new ceremony. The white card spinning twice for three and a

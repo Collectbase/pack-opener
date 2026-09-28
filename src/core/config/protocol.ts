@@ -29,11 +29,17 @@ export const MESSAGES = {
    * `durationMs` how long it will run. For a host that scores the ceremony —
    * a sound on the lid coming off, a rising tone under the charge, a swish on
    * the turn — where `opened` and `revealed` are too coarse.
+   *
+   * Slice also announces 0.4's names beside its own, for hosts scored by
+   * them: `spin` with `open`, `unveil` with `charge` (or once late artwork
+   * arrives), `spinHold` with `chargeHold`, `beam` with `flip`. The card
+   * lands as `beam` ends, as it did in 0.4. Deprecated, gone in 0.6.
    */
   PHASE: 'phase',
   /**
    * How long each phase of the ceremony will run, in ms, after `motion.speed`
-   * — for slice `chargeMs`, `flipMs`, `landMs`, `holdMs`; for burst
+   * — for slice `chargeMs`, `flipMs`, `landMs`, `holdMs` (and, deprecated,
+   * 0.4's `spinMs`, `unveilMs`, `beamMs`); for burst
    * `chargeHoldMs`, `releaseMs`, `beatMs`, `swarmMs`, `assembleMs`,
    * `snapMs`. Posted with `ready` and again after every retune, so a host
    * that cues a sound ahead of a phase (an impact that has to land as the

@@ -18,9 +18,16 @@ export interface PackOpenerEvent {
  */
 export type SetOptionsResult = 'applied' | 'deferred' | 'scene';
 
-/** The `timeline` event's payload: phase lengths in ms, after `motion.speed`. */
+/**
+ * The `timeline` event's payload: phase lengths in ms, after `motion.speed`.
+ * `spinMs`, `unveilMs` and `beamMs` are the lengths of 0.4's slice phases,
+ * still announced for hosts that score by them — deprecated, gone in 0.6.
+ */
 export type PackOpenerTimeline = Partial<
   Record<
+    | 'spinMs'
+    | 'unveilMs'
+    | 'beamMs'
     | 'chargeMs'
     | 'landMs'
     | 'holdMs'
@@ -46,7 +53,7 @@ export type PackOpenerTimeline = Partial<
 /** The numbers a host scoring the ceremony needs, read off the resolved options. */
 function timelineOf(resolved: ResolvedOptions): PackOpenerTimeline {
   const o = resolved as unknown as {
-    motion: {reveal: Record<string, unknown>};
+    motion: {reveal: Record<string, unknown>; open: Record<string, unknown>};
     slice?: Record<string, unknown>;
     charge?: Record<string, unknown>;
     burst?: Record<string, unknown>;
@@ -55,6 +62,11 @@ function timelineOf(resolved: ResolvedOptions): PackOpenerTimeline {
   const pick = (source: Record<string, unknown> | undefined, key: string) =>
     typeof source?.[key] === 'number' ? (source[key] as number) : undefined;
   const timeline: PackOpenerTimeline = {
+    // 0.4's slice phases start with the lid, the charge and the turn — see the
+    // slice scene's `announceLegacyPhase`
+    spinMs: o.slice ? pick(o.motion.open, 'ms') : undefined,
+    unveilMs: pick(o.slice, 'chargeMs'),
+    beamMs: pick(o.slice, 'flipMs'),
     chargeMs: pick(o.slice, 'chargeMs'),
     landMs: pick(o.slice, 'landMs'),
     holdMs: pick(o.motion.reveal, 'holdMs'),
