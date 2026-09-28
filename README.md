@@ -141,10 +141,11 @@ other presets are judged against.
 **`slice`** — the seal is cut with a finger. The cut follows the trail and
 glows behind the blade, sparks flying off it; when it gives the lid tears
 away, light pours out of the pack, the emptied wrapper sinks and the card
-rises out past the lip face down. It gathers itself — a beam in its colour
-lapping its edge, the star printed on its back burning up in that colour — and
-turns over in perspective onto its stand, glints catching on the artwork as
-it lands. It asks for a small piece of skill and rewards a confident swipe.
+rises out past the lip face down, a plain card of white light. It gathers
+itself — a beam in its colour lapping its edge, the halo behind it filling
+with that colour — and turns over in perspective onto its stand, glints
+catching on the artwork as it lands. It asks for a small piece of skill and
+rewards a confident swipe.
 
 **`burst`** — the pack is held under a finger and the pressure builds: it
 shudders, squeezes, heats up from the inside and a line closes around it showing

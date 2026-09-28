@@ -26,14 +26,15 @@ export const PRESETS: Record<
       // Warm, like metal cut hot — the pull's own colour is kept for the card
       seam: '#ffcf8a',
       hint: '#ffffff',
-      // Dark and engraved, so the card's colour has something to burn through
+      // A plain card of white light: nothing printed on it, the pull's colour
+      // is the beam round its edge and the halo behind it
       cardBack: {
-        top: '#262b3d',
-        mid: '#141825',
-        bottom: '#0a0c13',
-        sheen: 'rgba(255,255,255,0.10)',
-        line: 'rgba(170,186,255,0.09)',
-        emblem: 'rgba(222,228,246,0.86)',
+        top: '#ffffff',
+        mid: '#f4f6ff',
+        bottom: '#e9edf8',
+        sheen: 'rgba(255,255,255,0.85)',
+        line: 'transparent',
+        emblem: 'transparent',
       },
       // The artwork's own corners: a graded slab is barely rounded, and cut
       // any rounder its frame loses its corners while the glow runs round a
@@ -188,7 +189,8 @@ export const PRESETS: Record<
       chargeWaitMs: 700,
       chargeLaps: 1.8,
       chargeHalo: 0.75,
-      emblemAlpha: 0.95,
+      // No star printed on the back for its light to fill
+      emblemAlpha: 0,
       tiltDeg: 8,
       tiltMs: 2300,
       tremble: 1.6,
