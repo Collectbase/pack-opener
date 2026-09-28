@@ -1,6 +1,6 @@
 {
   "name": "pack-opener-js",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Interactive pack-opening animation rendered by PixiJS, for React Native and the web",
   "keywords": [
     "animation",
@@ -67,7 +67,7 @@
     "prepublishOnly": "pnpm verify:scene && pnpm typecheck && pnpm build:dist"
   },
   "peerDependencies": {
-    "pixi.js": "^8",
+    "pixi.js": "^8.3.0",
     "react": ">=18",
     "react-native": ">=0.79",
     "react-native-reanimated": ">=3",
