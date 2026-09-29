@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.4
+
+**The halo takes a colour that arrives mid-ceremony.** The halo round the
+card was baked into its texture in `theme.glow` when the card was built — on
+`slice`, before the pack is even cut — so a `theme.glow` set later reached the
+beam lapping the edge, the bloom and the contour, but not the halo: it kept the
+colour the card was built with. A host that learns the pull's colour once the
+lid is off saw a tier-coloured edge inside a halo of the default. The halo is
+now baked white and tinted with `theme.glow`, as the pack's backlight already
+was, so a new colour reaches it at once. A host that sets its colour up front
+sees no change.
+
 ## 0.5.3
 
 **The card comes out of the pack as white light.** Face down, the `slice`

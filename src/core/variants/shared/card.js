@@ -151,6 +151,12 @@ export class RevealCard {
   setOptions(options, colors) {
     this.o = options;
     this.colors = colors;
+    // The one glow baked into a texture takes its colour as a tint, so a colour
+    // that arrives mid-ceremony — the pull's tier, known once the pack is open —
+    // reaches it along with the rest
+    if (this.halo) {
+      this.halo.tint = colors.glow;
+    }
   }
 
   /**
@@ -382,15 +388,17 @@ export class RevealCard {
     this.rim.blendMode = 'add';
     this.rim.alpha = 0;
 
+    // Baked white and tinted, so it can change colour without a rebuild
     this.halo = new Sprite(
       makeHaloTexture(
         width,
         height,
-        this.o.theme.glow,
+        '#ffffff',
         glow.haloSpread,
         this.o.theme.cornerRadius,
       ),
     );
+    this.halo.tint = this.colors.glow;
     this.halo.anchor.set(0.5);
     this.halo.width = width + glow.haloPadding;
     this.halo.height = height + glow.haloPadding;
