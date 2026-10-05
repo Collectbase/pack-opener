@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.5
+
+**The carousel's chosen pack no longer flashes across the stage.** When the
+tapped copy has dropped off the ring and rises alone to the centre, its own
+sprite was made visible a frame before `rise` placed it: for that frame it was
+drawn at its artwork's own size in the stage's top-left corner. It is now put
+where the copy left the ring, at that copy's size, before it is shown.
+`slice` and `burst` are as they were.
+
 ## 0.5.4
 
 **The halo takes a colour that arrives mid-ceremony.** The halo round the

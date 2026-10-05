@@ -364,6 +364,13 @@ export class CarouselScene {
         h: from.height,
       };
       this.turntable.setAlpha(0);
+      // Put where the copy left the ring before it is shown: `rise` only
+      // places it on the next frame, and this one drew it at its own size in
+      // the stage's corner — a flash of the whole pack
+      this.held.position.set(this.riseFrom.x, this.riseFrom.y);
+      this.held.width = this.riseFrom.w;
+      this.held.height = this.riseFrom.h;
+      this.held.alpha = 1;
       this.held.visible = true;
       this.animate('rise', c.riseMs, () => {
         // The pack is up: the tap to open it is armed again
