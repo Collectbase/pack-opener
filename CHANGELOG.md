@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.6
+
+**The native wrapper tells the host when the pack is committed to.** The
+scene has always sent `committed` at the point of no return — the cut through,
+the charge gone off, the carousel's copy chosen — and the React wrapper hands
+it on as `onCommitted`, but the native one only played a haptic on it. It now
+calls `onCommitted` as well, so a React Native host can open the pack the
+moment the carousel's copy is chosen, as a web host does, and have the card's
+`facts` in by the time they are told. The haptic is as it was; a host that
+passes nothing sees no change. Only the native entry changed — the core, the
+mechanics and the React wrapper are byte for byte 0.5.5's.
+
 ## 0.5.5
 
 **The carousel's chosen pack no longer flashes across the stage.** When the

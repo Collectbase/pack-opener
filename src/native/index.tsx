@@ -60,6 +60,14 @@ export interface PackOpenerProps {
   renderFallback?: () => ReactNode;
   onHaptic?: (intent: HapticIntent) => void;
   onInteractionStart?: () => void;
+  /**
+   * The point of no return: the cut is through, the charge goes off, the
+   * carousel's copy is chosen. A host whose card has things to tell before it
+   * is shown (`assets.card.facts`) opens the pack here — on the carousel the
+   * second tap and the dissolve still lie ahead, time enough for them to
+   * arrive before they are told.
+   */
+  onCommitted?: () => void;
   /** The cut was let go of before it finished — the pack is untouched again. */
   onInteractionCancel?: () => void;
   /** The lid is off — the pack counts as opened from here. */
@@ -97,6 +105,7 @@ const PackOpener = forwardRef<PackOpenerHandle, PackOpenerProps>(
       renderFallback,
       onHaptic,
       onInteractionStart,
+      onCommitted,
       onInteractionCancel,
       onOpenComplete,
       onRevealComplete,
@@ -206,6 +215,7 @@ const PackOpener = forwardRef<PackOpenerHandle, PackOpenerProps>(
             break;
           case MESSAGES.COMMITTED:
             onHaptic?.('heavy');
+            onCommitted?.();
             break;
           case MESSAGES.OPENED:
             onHaptic?.('success');
@@ -236,6 +246,7 @@ const PackOpener = forwardRef<PackOpenerHandle, PackOpenerProps>(
         }
       },
       [
+        onCommitted,
         onError,
         onHaptic,
         onInteractionCancel,
