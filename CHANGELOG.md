@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.7
+
+**The native wrapper hands on what a host needs to score the ceremony with
+sound.** The scene has always sent a tick with the cut's progress, the start
+of every phase with how long it will run, and the timeline of every phase;
+the React wrapper hands them on as `onProgress`, `onPhase` and `onTimeline`,
+but the native one only played a haptic on the tick and dropped the rest. It
+now has the same three props, so a React Native host can lay sound under the
+ceremony the way a web host does. The tick's haptic is as it was; a host that
+passes none of them sees no change. Only the native entry changed — the core,
+the mechanics and the React wrapper are byte for byte 0.5.6's.
+
 ## 0.5.6
 
 **The native wrapper tells the host when the pack is committed to.** The

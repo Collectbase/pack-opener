@@ -15,6 +15,7 @@ import {WebView, type WebViewMessageEvent} from 'react-native-webview';
 import buildSceneHtml from './html';
 import {COMMANDS, MESSAGES} from '../core/config/protocol';
 import type {PackOpenerOptions} from '../core/config/types';
+import type {PackOpenerTimeline} from '../core';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -60,6 +61,8 @@ export interface PackOpenerProps {
   renderFallback?: () => ReactNode;
   onHaptic?: (intent: HapticIntent) => void;
   onInteractionStart?: () => void;
+  /** Cut progress, 0..1 — a tick under the finger, besides its haptic. */
+  onProgress?: (progress: number) => void;
   /**
    * The point of no return: the cut is through, the charge goes off, the
    * carousel's copy is chosen. A host whose card has things to tell before it
@@ -75,6 +78,13 @@ export interface PackOpenerProps {
   /** The whole ceremony has played out. */
   onRevealComplete?: () => void;
   onError?: (message: string) => void;
+  /**
+   * A phase of the ceremony has begun — the scene's own name for it and how
+   * long it will run, see `MESSAGES.PHASE`. For scoring the ceremony with sound.
+   */
+  onPhase?: (name: string, durationMs: number) => void;
+  /** How long each phase will run — with `ready` and after every retune, see `MESSAGES.TIMELINE`. */
+  onTimeline?: (timeline: PackOpenerTimeline) => void;
 }
 
 const originOf = (url?: string) => {
@@ -105,11 +115,14 @@ const PackOpener = forwardRef<PackOpenerHandle, PackOpenerProps>(
       renderFallback,
       onHaptic,
       onInteractionStart,
+      onProgress,
       onCommitted,
       onInteractionCancel,
       onOpenComplete,
       onRevealComplete,
       onError,
+      onPhase,
+      onTimeline,
     },
     ref,
   ) {
@@ -212,6 +225,7 @@ const PackOpener = forwardRef<PackOpenerHandle, PackOpenerProps>(
             break;
           case MESSAGES.TICK:
             onHaptic?.('light');
+            onProgress?.(Number(data.progress) || 0);
             break;
           case MESSAGES.COMMITTED:
             onHaptic?.('heavy');
@@ -241,6 +255,14 @@ const PackOpener = forwardRef<PackOpenerHandle, PackOpenerProps>(
             setFailed(true);
             onError?.(String(data.message));
             break;
+          case MESSAGES.PHASE:
+            onPhase?.(String(data.name), Number(data.durationMs) || 0);
+            break;
+          case MESSAGES.TIMELINE: {
+            const {type: _type, ...timeline} = data;
+            onTimeline?.(timeline as PackOpenerTimeline);
+            break;
+          }
           default:
             break;
         }
@@ -252,7 +274,10 @@ const PackOpener = forwardRef<PackOpenerHandle, PackOpenerProps>(
         onInteractionCancel,
         onInteractionStart,
         onOpenComplete,
+        onPhase,
+        onProgress,
         onRevealComplete,
+        onTimeline,
       ],
     );
 
