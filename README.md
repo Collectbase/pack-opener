@@ -237,6 +237,10 @@ score keeps its place — lift the mute mid-ceremony and the next cue is heard.
 Epic, Rare); the bigger the pull, the harder the landing hits. It may arrive
 late, with the card, and falls back to `assets.card.badge`'s label.
 
+A host that already scores the ceremony itself from the events (`onPhase`,
+`onProgress`, `onTimeline` and the rest) keeps `sound` off, or drops its own
+score when it turns this one on — with both, every cue plays twice.
+
 The sounds are baked into the package, so there is nothing to host or fetch.
 On the web they sit in a chunk of their own that is only loaded once sound is
 on; the React Native wrapper lets its WebView start audio without a touch
