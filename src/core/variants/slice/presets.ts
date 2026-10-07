@@ -13,7 +13,7 @@ import type {ResolvedOptions} from '../../config/types';
  */
 export const PRESETS: Record<
   'classic',
-  Omit<ResolvedOptions, 'variant' | 'preset' | 'assets' | 'charge' | 'burst'>
+  Omit<ResolvedOptions, 'variant' | 'preset' | 'assets' | 'sound' | 'charge' | 'burst'>
 > = {
   classic: {
     theme: {

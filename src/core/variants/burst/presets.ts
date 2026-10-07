@@ -16,7 +16,7 @@ import type {ResolvedOptions} from '../../config/types';
  */
 export const PRESETS: Record<
   'charged',
-  Omit<ResolvedOptions, 'variant' | 'preset' | 'assets' | 'interaction' | 'hint'>
+  Omit<ResolvedOptions, 'variant' | 'preset' | 'assets' | 'sound' | 'interaction' | 'hint'>
 > = {
   charged: {
     theme: {

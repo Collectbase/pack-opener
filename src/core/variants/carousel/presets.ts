@@ -21,7 +21,7 @@ export const PRESETS: Record<
   'showcase',
   Omit<
     ResolvedOptions,
-    'variant' | 'preset' | 'assets' | 'interaction' | 'hint' | 'charge' | 'burst'
+    'variant' | 'preset' | 'assets' | 'sound' | 'interaction' | 'hint' | 'charge' | 'burst'
   >
 > = {
   showcase: {

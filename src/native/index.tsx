@@ -326,6 +326,10 @@ const PackOpener = forwardRef<PackOpenerHandle, PackOpenerProps>(
             bounces={false}
             setSupportMultipleWindows={false}
             allowsInlineMediaPlayback
+            // The ceremony's sound starts without a touch inside the page: a
+            // pack opened by `autoSlice` is tapped open on the native side.
+            // Fixed for the WebView's life, as iOS reads it only once
+            mediaPlaybackRequiresUserAction={false}
             pointerEvents={disabled ? 'none' : 'auto'}
             onError={() => fail('webview error')}
             onRenderProcessGone={() => fail('render process gone')}

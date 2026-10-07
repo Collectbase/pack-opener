@@ -740,6 +740,31 @@ export interface SliceOptions {
   emberAlpha?: number;
 }
 
+/**
+ * The ceremony's sound: the foil under the finger, the lid coming off, the
+ * sweep and the impact as the card lands, the carousel's clicks and chime —
+ * scored on the scene's own events, played with Web Audio wherever the scene
+ * runs. Off unless the host turns it on.
+ */
+export interface SoundOptions {
+  /** Off by default: a host that wants the ceremony heard says so. */
+  enabled?: boolean;
+  /** The master level, 0..1. */
+  volume?: number;
+  /**
+   * The player's own mute. The score keeps its place in silence, so a mute
+   * lifted mid-ceremony is heard from the next cue on.
+   */
+  muted?: boolean;
+  /**
+   * The pull's badge as the platform names it — Grail, Chase, Big Hit, Epic,
+   * Rare — which decides how hard the landing hits. Read when the landing is
+   * cued, so it may arrive with the card. Without it, `assets.card.badge`'s
+   * label; without either, the landing of a common pull.
+   */
+  badge?: string | null;
+}
+
 export interface PackOpenerOptions {
   variant?: VariantName;
   preset?: PresetName;
@@ -755,6 +780,7 @@ export interface PackOpenerOptions {
   charge?: ChargeOptions;
   burst?: BurstOptions;
   carousel?: CarouselOptions;
+  sound?: SoundOptions;
 }
 
 /** Every field filled in — what the scene actually runs on. */

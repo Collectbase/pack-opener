@@ -1,6 +1,6 @@
 {
   "name": "pack-opener-js",
-  "version": "0.5.7",
+  "version": "0.5.8",
   "description": "Interactive pack-opening animation rendered by PixiJS, for React Native and the web",
   "keywords": [
     "animation",
@@ -59,6 +59,7 @@
   },
   "scripts": {
     "build": "pnpm build:scene && pnpm build:dist",
+    "build:sounds": "node scripts/buildSounds.mjs",
     "build:scene": "node scripts/buildScene.mjs",
     "build:dist": "node scripts/build.mjs",
     "verify:scene": "node scripts/buildScene.mjs --check",

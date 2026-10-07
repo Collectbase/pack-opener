@@ -19,5 +19,7 @@ jobs:
       # The scene bundle is committed, so a stale one means someone edited the
       # scene and shipped the old build
       - run: pnpm verify:scene
+      # The sounds are committed baked as well
+      - run: node scripts/buildSounds.mjs --check
       - run: pnpm typecheck
       - run: pnpm build:dist

@@ -9,7 +9,8 @@
     "rootDir": "src"
   },
   "include": ["src"],
-  // The generated scene is a 550 KB string literal; its hand-written .d.ts
-  // next to it is what the importers resolve against
-  "exclude": ["src/native/sceneBundle.js"]
+  // The generated scene and sounds are string literals of half a megabyte
+  // and more; their hand-written .d.ts next to them is what the importers
+  // resolve against
+  "exclude": ["src/native/sceneBundle.js", "src/core/sound/samples.js"]
 }

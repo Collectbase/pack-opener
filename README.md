@@ -121,6 +121,7 @@ noticeably different ceremony out of the same mechanic:
 | `carousel` | **`carousel` only.** The ring: how many copies, its radius, how far they turn with it and how they gather toward the front, the lens and the eye's height, how a copy fades and shades as it turns away, the hover; the idle drift, the shuffle, the finger's turn and the settle; the drop, the rise and how large the held pack grows; the float; the dissolve, the pacing of the facts, the banner's slide, hold and tilt, the flip; the floor reflection. |
 | `burst` | **`burst` only.** The blast: flash, the grid the foil is torn into and how uneven that cut is, when the shards start burning as sparks and when they fade, plus the spikes, shock rings, debris streaks and glitter thrown off with them. Then the beat of quiet, and the card's arrival: the dust cloud, the grid the artwork is cut into, how far out its pieces start and how they are staggered, when the finished card comes up underneath them, the landing push and the ring that goes out with it. |
 | `performance` | Frame caps for moving, idling and sleeping; ceiling on the device pixel ratio; multisampling. |
+| `sound` | The ceremony's sound, off unless `enabled`: its `volume`, the player's own `muted`, and the pull's `badge`, which decides how hard the landing hits. See [Sound](#sound). |
 
 What is deliberately *not* in here: easing curves, and the order of the phases
 themselves. A different sequence of events is a different mechanic — that is
@@ -215,6 +216,35 @@ shades for a scene made of soft glows, where the difference is hard to see.
 
 Turn the caps up if you are on a desktop and want it perfectly smooth; turn them
 down further on low-end phones.
+
+## Sound
+
+The ceremony can be heard: the foil tearing under the finger, the lid coming
+off, the sweep and the impact as the card lands, the burst's blast, the
+carousel's clicks, whooshes and chime. Each mechanic has its own score, played
+on the scene's own events with Web Audio wherever the scene runs — the browser
+on the web, the WebView on React Native — so a host wires nothing. It is **off
+by default**; turn it on with an option:
+
+```ts
+sound: {enabled: true, volume: 0.8, muted: false, badge: 'Big Hit'}
+```
+
+`volume` is the master level (0.8 when left out). `muted` is for the player's
+own mute button: pass the new options and what is playing fades out, while the
+score keeps its place — lift the mute mid-ceremony and the next cue is heard.
+`badge` is the pull's badge as the platform names it (Grail, Chase, Big Hit,
+Epic, Rare); the bigger the pull, the harder the landing hits. It may arrive
+late, with the card, and falls back to `assets.card.badge`'s label.
+
+The sounds are baked into the package, so there is nothing to host or fetch.
+On the web they sit in a chunk of their own that is only loaded once sound is
+on; the React Native wrapper lets its WebView start audio without a touch
+inside the page, so a pack opened with `autoSlice` is heard too. On iOS the
+session is ambient where the browser lets it be set: the ringer switch silences
+the ceremony and the player's music keeps playing. The files and their
+licences are listed in `assets/sounds/CREDITS.md`; replace one there and run
+`pnpm build:sounds`.
 
 ## Events
 
@@ -328,4 +358,5 @@ cheaper to write.
 
 ## License
 
-MIT
+MIT for the code. The sounds carry their own licences, listed in
+`assets/sounds/CREDITS.md`.

@@ -38,7 +38,33 @@ const EXTERNAL = [
   'pixi.js',
 ];
 
+// The web's ESM entries, built together so they can split: the baked sounds
+// load through a dynamic import, and a host's bundler keeps them in a chunk
+// of their own that a page with sound off never fetches
+const SPLIT = ['index', 'react'];
+
 rmSync(dist, {recursive: true, force: true});
+
+await build({
+  entryPoints: Object.fromEntries(
+    ENTRIES.filter(entry => SPLIT.includes(entry.out)).map(entry => [
+      entry.out,
+      resolve(root, entry.in),
+    ]),
+  ),
+  outdir: dist,
+  entryNames: '[name]',
+  chunkNames: 'chunks/[name]-[hash]',
+  splitting: true,
+  bundle: true,
+  format: 'esm',
+  platform: 'neutral',
+  target: ['es2020'],
+  jsx: 'automatic',
+  external: EXTERNAL,
+  sourcemap: true,
+  logLevel: 'warning',
+});
 
 for (const entry of ENTRIES) {
   // ESM keeps the .js extension because `type: module` already marks it as
@@ -48,6 +74,9 @@ for (const entry of ENTRIES) {
     ['esm', 'js'],
     ['cjs', 'cjs'],
   ]) {
+    if (format === 'esm' && SPLIT.includes(entry.out)) {
+      continue;
+    }
     await build({
       entryPoints: [resolve(root, entry.in)],
       outfile: resolve(dist, `${entry.out}.${ext}`),

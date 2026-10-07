@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.5.8
+
+**The ceremony can be heard.** Every mechanic now has a score — the foil
+tearing under the finger, the lid coming off, the sweep and the impact as the
+card lands, the burst's blast, the carousel's clicks, whooshes and chime —
+played with Web Audio on the scene's own events, in the browser and in the
+React Native WebView alike. It is the score the Repackz iframe plays, moved
+into the package with its sounds, so every host sounds the same and none has
+to wire anything. It is off by default: `sound: {enabled: true}` turns it on,
+`volume` sets the level, `muted` is the player's own mute and works
+mid-ceremony, and `badge` (or `assets.card.badge`'s label) decides how hard the
+landing hits. The sounds are baked in as data URIs; on the web they are a chunk
+of their own, loaded only once sound is on. The native wrapper's WebView now
+plays audio without a touch inside the page, so a pack opened by `autoSlice`
+is heard too. A host that passes no `sound` sees and hears no change.
+
 ## 0.5.7
 
 **The native wrapper hands on what a host needs to score the ceremony with

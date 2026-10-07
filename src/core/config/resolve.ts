@@ -4,6 +4,9 @@ import type {PackOpenerOptions, ResolvedOptions, RestOptions} from './types';
 /** Card artwork the scene will wait for, before giving up and finishing. */
 const CARD_TIMEOUT_MS = 4000;
 
+/** The ceremony's sound, once a host turns it on and says no louder. */
+const SOUND_VOLUME = 0.8;
+
 type Plain = Record<string, unknown>;
 
 const isPlain = (value: unknown): value is Plain =>
@@ -130,6 +133,13 @@ export function resolveOptions(options: PackOpenerOptions): ResolvedOptions {
     // The host's own, whole or not at all: a box with a side missing is no box
     ...(options.rest ? {rest: restOf(options.rest)} : {}),
     performance: merge(preset.performance, options.performance),
+    // The host's, not a preset's: a preset tunes the dance, not the room
+    sound: {
+      enabled: options.sound?.enabled ?? false,
+      volume: Math.min(1, Math.max(0, options.sound?.volume ?? SOUND_VOLUME)),
+      muted: options.sound?.muted ?? false,
+      badge: options.sound?.badge || options.assets?.card?.badge?.label || '',
+    },
     // Only for the mechanic that owns them: a preset without `interaction` has
     // no cut to read, one without `charge` has no pressure to build. Filling
     // them in regardless would hand every scene numbers for an animation it

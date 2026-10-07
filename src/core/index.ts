@@ -3,6 +3,7 @@ import {DEFAULT_PEDESTAL_URI} from './variants/shared/defaultPedestal';
 import {MESSAGES} from './config/protocol';
 import {resolveOptions} from './config/resolve';
 import type {PackOpenerOptions, ResolvedOptions} from './config/types';
+import {createSound, type SceneSound} from './sound';
 import {variantOf} from './variants';
 
 export interface PackOpenerEvent {
@@ -161,8 +162,12 @@ export async function createPackOpener(
   {onEvent}: CreateOptions = {},
 ): Promise<PackOpenerInstance> {
   const resolved = resolveOptions(options);
-  const emit = (type: string, payload?: Record<string, unknown>) =>
+  // The sound hears every message the host does, a moment before it
+  let sound: SceneSound | null = null;
+  const emit = (type: string, payload?: Record<string, unknown>) => {
+    sound?.hear(type, payload);
     onEvent?.(payload ? {type, ...payload} : {type});
+  };
 
   const variant = variantOf(resolved.variant);
   // The live option set: the frame caps and `setOptions` both read it
@@ -209,6 +214,7 @@ export async function createPackOpener(
     throw error;
   }
 
+  sound = createSound(resolved.variant, resolved.sound);
   const scene = variant.create({app, texture, options: resolved, emit});
 
   // The stand the card lands over: the host's own when it sent one, otherwise
@@ -273,6 +279,8 @@ export async function createPackOpener(
   let dragging = false;
 
   const onDown = (event: PointerEvent) => {
+    // Any touch is the gesture a browser waits for before it lets audio start
+    sound?.unlock();
     // The cut is a primary-button drag: a right- or middle-click keeps its
     // native behaviour and must not slice the pack
     if (event.button !== 0) {
@@ -346,6 +354,8 @@ export async function createPackOpener(
   return {
     setOptions: (next: PackOpenerOptions) => {
       const nextResolved = resolveOptions(next);
+      // On the spot, whatever becomes of the rest: a mute cannot wait for a reset
+      sound?.set(nextResolved.sound);
       // The scene is built around one pack texture and one mechanic; changing
       // either is a new scene, not a new setting
       if (
@@ -390,6 +400,7 @@ export async function createPackOpener(
     reset: () => {
       wake();
       scene.reset();
+      sound?.reset();
     },
     setEnabled: (value: boolean) => {
       wake();
@@ -404,6 +415,7 @@ export async function createPackOpener(
       canvas.removeEventListener('pointercancel', onUp);
       app.ticker.remove(tick);
       scene.destroy?.();
+      sound?.destroy();
       app.destroy(true, {children: true});
     },
   };
