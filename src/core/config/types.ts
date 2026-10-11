@@ -763,6 +763,13 @@ export interface SoundOptions {
    * label; without either, the landing of a common pull.
    */
   badge?: string | null;
+  /**
+   * The host's own files for any of the score's cues, by cue name — a URL or
+   * a `data:` URI each — laid over the baked ones. Read once, when sound is
+   * first on; a file that will not load leaves the baked cue in place. In the
+   * React Native WebView only `data:` URIs are sure to load.
+   */
+  samples?: Record<string, string>;
 }
 
 export interface PackOpenerOptions {

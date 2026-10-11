@@ -139,6 +139,7 @@ export function resolveOptions(options: PackOpenerOptions): ResolvedOptions {
       volume: Math.min(1, Math.max(0, options.sound?.volume ?? SOUND_VOLUME)),
       muted: options.sound?.muted ?? false,
       badge: options.sound?.badge || options.assets?.card?.badge?.label || '',
+      samples: options.sound?.samples ?? {},
     },
     // Only for the mechanic that owns them: a preset without `interaction` has
     // no cut to read, one without `charge` has no pressure to build. Filling

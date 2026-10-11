@@ -25,12 +25,21 @@ async function decode(context: AudioContext, uri: string): Promise<AudioBuffer> 
   return context.decodeAudioData(bytes.buffer);
 }
 
+/** A host's file for a cue: a `data:` URI decoded in place, anything else fetched. */
+async function load(context: AudioContext, source: string): Promise<AudioBuffer> {
+  if (source.startsWith('data:')) return decode(context, source);
+  const response = await fetch(source);
+  if (!response.ok) throw new Error(`${response.status} for ${source}`);
+  return context.decodeAudioData(await response.arrayBuffer());
+}
+
 /**
  * Scores one scene from its own messages — the same ones the host is sent —
  * so a host turns sound on with an option and wires nothing. Off, nothing is
  * made: no context, and the baked sounds (`samples.js`, a chunk of its own on
  * the web) are not even loaded. The first time it is on they are decoded,
- * and the score plays from whatever the scene does next.
+ * the host's own files (`sound.samples`) laid over them, and the score plays
+ * from whatever the scene does next.
  */
 export function createSound(variant: VariantName, initial: Sound): SceneSound {
   const engine = createSoundEngine();
@@ -38,7 +47,7 @@ export function createSound(variant: VariantName, initial: Sound): SceneSound {
   let loading = false;
   const score = createScore(engine, variant, () => landingTierFor(current.badge));
 
-  const load = () => {
+  const loadBank = () => {
     if (loading) return;
     loading = true;
     void import('./samples')
@@ -54,6 +63,16 @@ export function createSound(variant: VariantName, initial: Sound): SceneSound {
             }
           }),
         );
+        // The host's files go over the baked ones, so they wait for them
+        await Promise.all(
+          Object.entries(current.samples).map(async ([cue, source]) => {
+            try {
+              engine.register(cue, await load(context, source));
+            } catch {
+              /* a file that will not load leaves the baked cue in place */
+            }
+          }),
+        );
       })
       .catch(() => {});
   };
@@ -61,7 +80,7 @@ export function createSound(variant: VariantName, initial: Sound): SceneSound {
   const set = (sound: Sound) => {
     current = sound;
     engine.setLevel(sound.enabled && !sound.muted ? sound.volume : 0);
-    if (sound.enabled) load();
+    if (sound.enabled) loadBank();
   };
   set(initial);
 

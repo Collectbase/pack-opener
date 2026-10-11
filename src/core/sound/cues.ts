@@ -66,6 +66,9 @@ const SWEEP_LEAD_MS = 2000;
 const IMPACT_RISE_MS = 940;
 const BLAST_RISE_MS = 570;
 
+/** The burst's own sweep, impact and magic, where the bank (or the host) has them; the slice's otherwise. */
+const own = (engine: SoundEngine, cue: string, shared: string) => (engine.has(cue) ? cue : shared);
+
 /**
  * When the turning card passes edge-on, as fractions of the spin. The scene
  * turns it `SPIN_TURNS` times over an ease-in-out, so the edges bunch up
@@ -362,7 +365,7 @@ function burstScore(engine: SoundEngine, tier: () => LandingTier): Score {
               const assembleMs = timeline.assembleMs ?? DEFAULT_ASSEMBLE_MS;
               const snapMs = timeline.snapMs ?? DEFAULT_SNAP_MS;
               sweep?.stop(0);
-              sweep = engine.play('reveal-sweep', {
+              sweep = engine.play(own(engine, 'burst-sweep', 'reveal-sweep'), {
                 gain: 0.8,
                 delayMs: Math.max(0, swarmMs + assembleMs + snapMs - SWEEP_LEAD_MS),
               });
@@ -376,14 +379,14 @@ function burstScore(engine: SoundEngine, tier: () => LandingTier): Score {
               // the landing by however much — cue it afresh from here
               if (performance.now() > sweepAt + 100) {
                 sweep?.stop(0);
-                sweep = engine.play('reveal-sweep', {
+                sweep = engine.play(own(engine, 'burst-sweep', 'reveal-sweep'), {
                   gain: 0.8,
                   delayMs: Math.max(0, assembleMs + snapMs - SWEEP_LEAD_MS),
                 });
               }
               keep(
                 landing,
-                engine.play('impact', {
+                engine.play(own(engine, 'burst-impact', 'impact'), {
                   gain: IMPACT_GAIN[tier()],
                   delayMs: Math.max(0, assembleMs + snapMs - IMPACT_RISE_MS),
                 }),
@@ -394,7 +397,7 @@ function burstScore(engine: SoundEngine, tier: () => LandingTier): Score {
               engine.play('card-place', {gain: 0.7});
               break;
             case 'settle':
-              keep(landing, engine.play('magic', {gain: 1}));
+              keep(landing, engine.play(own(engine, 'burst-magic', 'magic'), {gain: 1}));
               break;
             default:
               break;

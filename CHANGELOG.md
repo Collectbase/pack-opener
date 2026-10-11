@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.5.9
+
+**The bank is all public domain.** The carousel's click, whoosh, select and
+chime were the reference's own files, and the sweep, the impact and the blast
+came from Mixkit, whose licence lets a product play them but not a package
+ship them. All seven are replaced with CC0 recordings from Freesound, cut so
+they peak where the score expects, and `assets/sounds/CREDITS.md` lists each.
+The score is as it was; a host that wants the old files back lays them over
+the cues with `sound.samples`. The burst now has a sweep, an impact and a landing
+of its own (`burst-sweep`, `burst-impact`, `burst-magic`), and falls back to
+the slice's where a bank or a host has none.
+
+**A host can bring its own sounds.** `sound.samples` takes a file per cue
+name — a URL or a `data:` URI — and lays it over the baked one, read once when
+sound is first on. A file that will not load leaves the baked cue in place; in
+the React Native WebView only `data:` URIs are sure to load. A host that
+passes no `samples` hears no change.
+
 ## 0.5.8
 
 **The ceremony can be heard.** Every mechanic now has a score — the foil
