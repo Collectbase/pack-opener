@@ -367,6 +367,30 @@ const CAROUSEL_GROUPS: {title: string; variants?: string[]; controls: Control[]}
     ],
   },
   {
+    title: 'Badge word',
+    variants: ['slice', 'burst'],
+    controls: [
+      {
+        kind: 'plain',
+        path: 'motion.reveal.badgeWord',
+        label: 'Word behind the landed card (on / off)',
+        placeholder: 'off',
+        parse: raw => raw.trim() === 'on',
+        format: value => (value ? 'on' : 'off'),
+      },
+      {
+        kind: 'plain',
+        path: 'assets.card.badge.label',
+        label: 'Badge (empty = none)',
+        placeholder: 'Mythic',
+        parse: raw => raw.trim() || undefined,
+        format: value => (value == null ? '' : String(value)),
+      },
+      {kind: 'color', path: 'assets.card.badge.color', label: 'Badge colour'},
+      {kind: 'text', path: 'theme.badgeFont', label: 'Font family'},
+    ],
+  },
+  {
     title: 'Story',
     variants: ['carousel'],
     controls: [

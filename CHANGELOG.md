@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.5.12
+
+**The pull's badge behind the landed card.** A host that wanted the tier
+written large behind the card, as a winner screen does, had to draw it in
+its own page under the scene's canvas — so only the host that did had it,
+and the React Native app could not. `motion.reveal.badgeWord` draws it in
+the scene: `slice` and `burst` stroke `assets.card.badge`'s label in its
+colour, under the card and its stand, as the card lands — opening out from
+the centre and fading towards the stage's edges. Off by default, and a pull
+without a badge gets no word, so which tiers have one stays the host's call.
+Turned on or off while the card is down, or given a badge late, it shows or
+goes at once. `theme.badgeFont` names the family, a narrow system one by
+default so nothing ships in the bundle; a web font the host's page can load
+is asked for ahead, so the first pull does not get the fallback. A host that
+passes neither sees no change.
+
 ## 0.5.11
 
 **A long fact wraps instead of running off the stage.** The carousel set

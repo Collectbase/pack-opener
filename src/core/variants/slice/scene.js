@@ -15,6 +15,7 @@ import {clamp, computeSliceRect, easeOut} from './geometry';
 import {SliceEffects} from './effects';
 import {SliceHint} from './hint';
 import {CardPedestal} from '../shared/pedestal';
+import {BadgeWord} from '../shared/badgeWord';
 import {PackWrapper} from './wrapper';
 import {RevealCard} from '../shared/card';
 import {contentBoundsOf} from '../shared/textures';
@@ -90,6 +91,7 @@ export class PackScene {
     this.card = new RevealCard(this.root, app.screen, this.o, this.colors);
     this.card.useDepth(app.renderer);
     this.pedestal = new CardPedestal(this.root, this.o);
+    this.badgeWord = new BadgeWord(this.root, app.screen, this.o);
 
     this.redraw();
   }
@@ -112,7 +114,8 @@ export class PackScene {
       this.dirty ||
       this.tracking ||
       this.intro < 1 ||
-      this.effects.busy
+      this.effects.busy ||
+      this.badgeWord.busy
     ) {
       return 'busy';
     }
@@ -382,6 +385,7 @@ export class PackScene {
       this.pedestal.reveal();
     }
     this.effects.startEmbers(this.card.bounds(), this.o.slice);
+    this.badgeWord.reveal(this.card.bounds());
     this.landClock = 0;
     this.animate('land', this.o.slice.landMs, () => {
       if (lifts) {
@@ -455,6 +459,7 @@ export class PackScene {
    * down itself. Keeps the variant safe to swap out without dropping the app.
    */
   destroy() {
+    this.badgeWord.destroy();
     this.root.destroy({children: true});
   }
 
@@ -470,6 +475,7 @@ export class PackScene {
     this.colors = sceneColors(next.theme);
     this.card.setOptions(next, this.colors);
     this.pedestal.setOptions(next);
+    this.badgeWord.setOptions(next);
     this.wrapper.setOptions(next);
     this.hint.setColor(toNumber(next.theme.hint));
     this.dirty = true;
@@ -593,6 +599,7 @@ export class PackScene {
     this.effects.reset();
     this.card.rewind(this.rect);
     this.pedestal.rewind();
+    this.badgeWord.rewind();
     this.artWaitStart = 0;
     this.dirty = true;
     this.redraw();
@@ -701,6 +708,7 @@ export class PackScene {
       this.colors,
     );
     this.pedestal.update(deltaMS);
+    this.badgeWord.update(deltaMS);
     this.card.updateGlow(deltaMS);
     this.effects.update(deltaMS, fx, this.colors);
 

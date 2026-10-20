@@ -40,6 +40,9 @@ export const PRESETS: Record<
       // any rounder its frame loses its corners while the glow runs round a
       // shape the card does not have
       cornerRadius: 6,
+      // Narrow, so a long tier still reads across a phone; the system's own
+      // on every platform, so nothing ships in the bundle
+      badgeFont: '"Arial Narrow", "Roboto Condensed", sans-serif-condensed, system-ui, sans-serif',
     },
     motion: {
       speed: 1,
@@ -76,6 +79,7 @@ export const PRESETS: Record<
         haloAlpha: 0.95,
         glowDuring: {},
         glowFadeMs: 200,
+        badgeWord: false,
         beamWidth: 3,
         beamAlpha: 0.9,
         beamGlowWidth: 14,

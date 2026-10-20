@@ -80,6 +80,13 @@ export interface ThemeOptions {
   };
   /** Corner radius of the card, in css px. */
   cornerRadius?: number;
+  /**
+   * The family the badge's word behind the landed card is set in
+   * (`motion.reveal.badgeWord`), as CSS names it. A web font works once the
+   * host's page can load it; in the React Native WebView only the device's
+   * own fonts are there, so keep a system family at the end.
+   */
+  badgeFont?: string;
 }
 
 export interface MotionOptions {
@@ -150,6 +157,13 @@ export interface MotionOptions {
     glowDuring?: Partial<Record<string, boolean>>;
     /** How long the glows take to go out or come back between phases. */
     glowFadeMs?: number;
+    /**
+     * The pull's badge — `assets.card.badge`, its label in its colour — as a
+     * giant outline word behind the card once it has landed (`slice`,
+     * `burst`). Off by default; a pull without a badge gets no word, so the
+     * host decides which tiers have one by passing it or not.
+     */
+    badgeWord?: boolean;
     /** The travelling beam: core line, the glow under it, and its bright tip. */
     beamWidth?: number;
     beamAlpha?: number;
