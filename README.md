@@ -175,7 +175,8 @@ coasts and settles on the nearest. A tap on a copy chooses it too: it drops off 
 centre stage, where it floats until it is tapped again — the host opens the
 pack server-side in between, and the float lasts as long as that takes,
 nothing looping. The second tap dissolves the pack and the pull is told
-before it is shown: its facts fade in one under the other, then a pill in the
+before it is shown: its facts fade in one under the other, a long one wrapping
+to the stage's width, then a pill in the
 tier's colour, and for a tier worth shouting about a banner slides across the
 stage with the tier's name running along it. Then the blank card flips over
 into the artwork. It asks for nothing but a choice, and the telling is the

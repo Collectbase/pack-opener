@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.11
+
+**A long fact wraps instead of running off the stage.** The carousel set
+each fact on one line at a size taken from the pack, so on a phone a value of
+fifteen letters or so — a player's full name, a long category — ran past both
+edges. A value now wraps at the stage's width less a margin, takes a second
+line before it gets smaller, and shrinks to keep to two lines down to 60% of
+its size; past that it takes the lines it needs, and a word too long for a
+line breaks. Labels wrap the same way. The facts are laid out by the height
+they come out at, and a story that wraps its way taller than the pack gets
+smaller as a whole. The tier's pill stays on one line and shrinks to fit.
+Facts that fit on one line sit exactly where they did.
+
 ## 0.5.10
 
 **The card's light can be left out of a phase.** Bloom, rim, halo and the
