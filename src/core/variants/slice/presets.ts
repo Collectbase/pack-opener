@@ -74,6 +74,8 @@ export const PRESETS: Record<
         // Low, so the white edge never outshines the pull's own colour
         rimAlpha: 0.55,
         haloAlpha: 0.95,
+        glowDuring: {},
+        glowFadeMs: 200,
         beamWidth: 3,
         beamAlpha: 0.9,
         beamGlowWidth: 14,

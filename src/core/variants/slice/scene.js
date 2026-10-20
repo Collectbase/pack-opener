@@ -605,6 +605,7 @@ export class PackScene {
     if (!quiet) {
       this.emit(MESSAGES.PHASE, {name: kind, durationMs: duration});
       this.announceLegacyPhase(kind, duration);
+      this.card.enterPhase(kind, duration);
     }
     if (kind === 'runOut') {
       const n = this.trail.length;
@@ -700,6 +701,7 @@ export class PackScene {
       this.colors,
     );
     this.pedestal.update(deltaMS);
+    this.card.updateGlow(deltaMS);
     this.effects.update(deltaMS, fx, this.colors);
 
     const anim = this.anim;

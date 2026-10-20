@@ -52,6 +52,7 @@ function applySpeed(motion: ResolvedOptions['motion']): ResolvedOptions['motion'
       ...motion.reveal,
       holdMs: scale(motion.reveal.holdMs),
       artWaitSpinMs: scale(motion.reveal.artWaitSpinMs),
+      glowFadeMs: scale(motion.reveal.glowFadeMs),
     },
   };
 }

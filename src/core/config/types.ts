@@ -140,6 +140,16 @@ export interface MotionOptions {
     bloomAlpha?: number;
     rimAlpha?: number;
     haloAlpha?: number;
+    /**
+     * Whether the card's light — the three glows and the beam on its outline —
+     * shows during a phase, by the name `onPhase` reports it (`slice`: open,
+     * charge, chargeHold, flip, land, hold). A phase left out keeps it:
+     * `{hold: false}` leaves the card at rest bare and plays everything before
+     * it as it was. Once the ceremony is over, its last phase's choice stays.
+     */
+    glowDuring?: Partial<Record<string, boolean>>;
+    /** How long the glows take to go out or come back between phases. */
+    glowFadeMs?: number;
     /** The travelling beam: core line, the glow under it, and its bright tip. */
     beamWidth?: number;
     beamAlpha?: number;

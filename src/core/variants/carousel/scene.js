@@ -523,6 +523,7 @@ export class CarouselScene {
     this.anim = {kind, duration, elapsed: 0, onDone};
     if (!quiet) {
       this.emit(MESSAGES.PHASE, {name: kind, durationMs: duration});
+      this.card.enterPhase(kind, duration);
     }
   }
 
@@ -533,6 +534,7 @@ export class CarouselScene {
       this.root.alpha = easeOut(this.intro);
     }
     this.pedestal.update(deltaMS);
+    this.card.updateGlow(deltaMS);
 
     const c = this.o.carousel;
     const anim = this.anim;

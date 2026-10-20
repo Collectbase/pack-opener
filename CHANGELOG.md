@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.5.10
+
+**The card's light can be left out of a phase.** Bloom, rim, halo and the
+beam on the outline had one opacity each for the whole ceremony, so a host
+that wanted the card at rest bare — no light round it, the card as the
+player's collection shows it — had to zero them and lost the colour the card
+gathers face down along with it. `motion.reveal.glowDuring` names the phases
+the light is off in, by the names `onPhase` reports: `{hold: false}` keeps the
+charge, the turn and the landing lit and leaves the card bare once it has
+landed. They fade between phases over
+`glowFadeMs` (200), never longer than the phase, and a retune shows at once,
+on a card already at rest too. Every phase not named keeps its glows, so a
+host that passes no `glowDuring` sees no change.
+
 ## 0.5.9
 
 **The bank is all public domain.** The carousel's click, whoosh, select and

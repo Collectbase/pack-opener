@@ -146,6 +146,11 @@ export class RevealCard {
     this.node = null;
     // Set by `useDepth`: the card turns in perspective instead of flat
     this.renderer = null;
+    // How much of the glows the phase that is playing lets through, and the
+    // fade towards it (`enterPhase`)
+    this.phase = null;
+    this.glowLevel = 1;
+    this.glowFade = null;
   }
 
   setOptions(options, colors) {
@@ -156,6 +161,67 @@ export class RevealCard {
     // reaches it along with the rest
     if (this.halo) {
       this.halo.tint = colors.glow;
+    }
+    // A retune that turns the glows of the phase on or off shows at once, on a
+    // card already at rest too
+    const share = this.glowShare();
+    if (share !== (this.glowFade ? this.glowFade.to : this.glowLevel)) {
+      this.fadeGlowTo(share, 0);
+    }
+  }
+
+  /**
+   * A phase of the ceremony has begun, under the name the scene announces it
+   * by: the glows go where `motion.reveal.glowDuring` has them for it. Faded
+   * over `glowFadeMs`, or over the phase when that is shorter, so the light a
+   * phase drops is gone before the phase is.
+   */
+  enterPhase(name, duration) {
+    this.phase = name;
+    this.fadeGlowTo(
+      this.glowShare(),
+      Math.min(this.o.motion.reveal.glowFadeMs, duration),
+    );
+  }
+
+  /** 1 where the phase keeps the glows — every phase not named off — 0 where not. */
+  glowShare() {
+    return this.o.motion.reveal.glowDuring?.[this.phase] === false ? 0 : 1;
+  }
+
+  fadeGlowTo(to, span) {
+    if (span > 0 && to !== this.glowLevel) {
+      this.glowFade = {from: this.glowLevel, to, elapsed: 0, span};
+      return;
+    }
+    this.glowFade = null;
+    this.setGlowLevel(to);
+  }
+
+  /** Carries the fade `enterPhase` began on by a frame. */
+  updateGlow(deltaMS) {
+    const fade = this.glowFade;
+    if (!fade) {
+      return;
+    }
+    fade.elapsed += deltaMS;
+    const t = clamp(fade.elapsed / fade.span, 0, 1);
+    this.setGlowLevel(fade.from + (fade.to - fade.from) * t);
+    if (t >= 1) {
+      this.glowFade = null;
+    }
+  }
+
+  /**
+   * The beam goes with the glows: settled, it is the outline in the pull's
+   * colour, and a card left bare would still wear it. The ribbon reads the
+   * level as it is drawn, every frame it is on show.
+   */
+  setGlowLevel(level) {
+    this.glowLevel = level;
+    if (this.glows) {
+      this.glows.alpha = level;
+      this.beam.alpha = level;
     }
   }
 
@@ -460,7 +526,12 @@ export class RevealCard {
       sheenMask,
       this.beam,
     );
-    this.node.addChild(this.bloom, this.rim, this.halo, this.turn);
+    // The three lights under one layer, so a phase can take them away together
+    // without touching how each of them is lit
+    this.glows = new Container();
+    this.glows.addChild(this.bloom, this.rim, this.halo);
+    this.node.addChild(this.glows, this.turn);
+    this.setGlowLevel(this.glowLevel);
 
     // Hides whatever part of the card is still inside the wrapper
     this.clipG = new Graphics();
@@ -734,9 +805,9 @@ export class RevealCard {
       points[i].set(at.x, at.y);
     }
     glow.tint = this.colors.glow;
-    glow.alpha = Math.min(1, reveal.beamGlowAlpha * 2);
+    glow.alpha = this.glowLevel * Math.min(1, reveal.beamGlowAlpha * 2);
     core.tint = this.colors.beam;
-    core.alpha = reveal.beamAlpha;
+    core.alpha = this.glowLevel * reveal.beamAlpha;
     glow.visible = true;
     core.visible = true;
   }
@@ -1031,6 +1102,9 @@ export class RevealCard {
 
   /** Puts the revealed card back inside the pack so a replay starts clean. */
   rewind(rect) {
+    // A replay starts with the glows lit, whatever the last ceremony ended on
+    this.phase = null;
+    this.fadeGlowTo(1, 0);
     if (!this.node) {
       return;
     }

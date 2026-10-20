@@ -359,6 +359,7 @@ export class BurstScene {
     // the swarm) is not announced again
     if (!quiet) {
       this.emit(MESSAGES.PHASE, {name: kind, durationMs: duration});
+      this.card.enterPhase(kind, duration);
     }
   }
 
@@ -367,6 +368,7 @@ export class BurstScene {
     this.updateIntro(deltaMS);
     this.updateCharge(deltaMS);
     this.pedestal.update(deltaMS);
+    this.card.updateGlow(deltaMS);
 
     const anim = this.anim;
     if (anim) {

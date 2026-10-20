@@ -64,7 +64,7 @@ export const PRESETS: Record<
         uncutFade: 0.18,
       },
       // This mechanic assembles the card instead of turning it over, so only
-      // `holdMs`, the three glow opacities and the card's geometry are read
+      // `holdMs`, the three glows and the card's geometry are read
       // from here — the beam belongs to the cut, the spin to the carousel
       reveal: {
         /** The stand comes in behind the card, ahead of the host's own UI. */
@@ -77,6 +77,8 @@ export const PRESETS: Record<
         bloomAlpha: 0.95,
         rimAlpha: 0.9,
         haloAlpha: 0.95,
+        glowDuring: {},
+        glowFadeMs: 200,
         beamWidth: 3,
         beamAlpha: 0.9,
         beamGlowWidth: 11,
