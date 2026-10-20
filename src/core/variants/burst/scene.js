@@ -17,6 +17,7 @@ import {Container} from 'pixi.js';
 import {MESSAGES} from '../../config/protocol';
 import {toNumber} from '../../runtime/color';
 import {CardPedestal} from '../shared/pedestal';
+import {BadgeWord} from '../shared/badgeWord';
 import {RevealCard} from '../shared/card';
 import {clamp, computePackRect} from '../shared/geometry';
 import {ScreenFlash} from '../shared/blast';
@@ -76,6 +77,7 @@ export class BurstScene {
 
     this.card = new RevealCard(this.root, app.screen, this.o, this.colors);
     this.pedestal = new CardPedestal(this.root, this.o);
+    this.badgeWord = new BadgeWord(this.root, app.screen, this.o);
     this.assembly = new CardAssembly(this.root, this.o.theme);
 
     // Over everything, the card included: the flash is the stage being hit,
@@ -105,7 +107,8 @@ export class BurstScene {
       this.tracking ||
       this.charge > 0 ||
       this.intro < 1 ||
-      this.blastClock !== null
+      this.blastClock !== null ||
+      this.badgeWord.busy
     ) {
       return 'busy';
     }
@@ -310,6 +313,7 @@ export class BurstScene {
   startAssemble() {
     this.handed = false;
     this.animate('assemble', this.o.burst.assembleMs, () => {
+      this.badgeWord.reveal(this.card.bounds());
       this.animate('snap', this.o.burst.snapMs, () => {
         this.assembly.hide();
         this.animate('settle', this.o.motion.reveal.holdMs, () =>
@@ -368,6 +372,7 @@ export class BurstScene {
     this.updateIntro(deltaMS);
     this.updateCharge(deltaMS);
     this.pedestal.update(deltaMS);
+    this.badgeWord.update(deltaMS);
     this.card.updateGlow(deltaMS);
 
     const anim = this.anim;
@@ -518,6 +523,7 @@ export class BurstScene {
     this.colors = sceneColors(next.theme);
     this.card.setOptions(next, this.colors);
     this.pedestal.setOptions(next);
+    this.badgeWord.setOptions(next);
 
     const baked =
       JSON.stringify(before.theme) !== JSON.stringify(next.theme) ||
@@ -633,6 +639,7 @@ export class BurstScene {
     this.root.position.set(0, 0);
     this.card.rewind(this.rect);
     this.pedestal.rewind();
+    this.badgeWord.rewind();
   }
 
   /**
@@ -640,6 +647,7 @@ export class BurstScene {
    * down itself. Keeps the variant safe to swap out without dropping the app.
    */
   destroy() {
+    this.badgeWord.destroy();
     this.root.destroy({children: true});
   }
 }
