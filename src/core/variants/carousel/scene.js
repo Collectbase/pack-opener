@@ -625,7 +625,7 @@ export class CarouselScene {
         // The story has been told: it goes as the strip arrives, and the
         // card, still face down, takes its place behind the strip
         const swap = clamp(anim.elapsed / STORY_SWAP_MS, 0, 1);
-        this.story.setAlpha(1 - swap);
+        this.story.fadeTo(1 - swap);
         this.card.setAlpha(swap);
         this.card.reveal('flip', 0);
         this.cardIn = true;
@@ -642,11 +642,11 @@ export class CarouselScene {
         this.card.setAlpha(1);
         this.cardIn = true;
         this.card.reveal('spinHold', t);
-        this.story.setAlpha(1 - clamp(anim.elapsed / STORY_SWAP_MS, 0, 1));
+        this.story.fadeTo(1 - clamp(anim.elapsed / STORY_SWAP_MS, 0, 1));
         break;
       }
       case 'flip': {
-        this.story.setAlpha(1 - clamp(anim.elapsed / (c.flipMs * 0.5), 0, 1));
+        this.story.fadeTo(1 - clamp(anim.elapsed / (c.flipMs * 0.5), 0, 1));
         // A card the banner did not bring in comes in with the first frames
         // of the flip, face down; half a turn later the artwork faces out
         if (!this.cardIn) {

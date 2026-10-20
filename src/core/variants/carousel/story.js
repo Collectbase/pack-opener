@@ -209,6 +209,15 @@ export class Story {
   }
 
   /**
+   * Fades the story towards `alpha`, never back up: each phase after the
+   * facts fades it on its own clock, and one that starts after another has
+   * already taken it away must not bring it back for a moment.
+   */
+  fadeTo(alpha) {
+    this.node.alpha = Math.min(this.node.alpha, alpha);
+  }
+
+  /**
    * The banner: a strip in the tier's colour across the stage, tilted, with
    * the tier's name repeated along it and running. Built for the stage as
    * a whole, so the strip runs off both edges.

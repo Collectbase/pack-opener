@@ -13,6 +13,14 @@ they come out at, and a story that wraps its way taller than the pack gets
 smaller as a whole. The tier's pill stays on one line and shrinks to fit.
 Facts that fit on one line sit exactly where they did.
 
+**The facts stay gone once the banner has taken them.** The banner fades
+the facts as it slides in, but the flip — and the turning wait for the
+artwork before it — faded them again on their own clocks, from full: the old
+text flashed back for a moment before the card turned over, and again with
+every turn of the wait. The story now only ever fades, so a tier's banner
+goes straight into the flip. Without a banner the facts fade with the flip
+as they did.
+
 ## 0.5.10
 
 **The card's light can be left out of a phase.** Bloom, rim, halo and the
