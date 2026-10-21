@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.5.13
+
+**The card's glow fades out instead of ending in a box on an ordinary
+screen.** The halo and the rim round the card — and the glow round the burst
+pack — are blurred shadows baked into a texture `spread` wider than the card.
+A canvas shadow does not scale with the canvas, so on a sharp screen, baked
+at twice the css pixel, the blur came out half as wide and faded inside the
+texture, while at one device pixel per css px it ran on past the texture's
+edge and was cut there: a faint square round the card on most Windows
+laptops and on desktop monitors at 100%. The blur is now counted in css
+pixels on every screen, the one a sharp screen has always shown, so an
+ordinary screen gets the same glow, faded out. Sharp screens are unchanged,
+and so are the sprites' sizes and `glow` options.
+
 ## 0.5.12
 
 **The pull's badge behind the landed card.** A host that wanted the tier

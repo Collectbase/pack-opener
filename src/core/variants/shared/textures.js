@@ -15,7 +15,7 @@ function makeCanvas(w, h) {
   canvas.height = Math.max(1, Math.ceil(h * dpr));
   const ctx = canvas.getContext('2d');
   ctx.scale(dpr, dpr);
-  return {canvas, ctx};
+  return {canvas, ctx, dpr};
 }
 
 /** The whole image: what the pixels say when they cannot be read. */
@@ -371,13 +371,19 @@ export function makeSheenTexture(w, h) {
   return Texture.from(canvas);
 }
 
-/** Halo hugging the card silhouette, in the rarity colour. */
+/**
+ * Halo hugging the card silhouette, in the rarity colour. The blur is the
+ * one a sharp screen shows, in css pixels on any screen: a canvas shadow
+ * ignores the transform, so at one device pixel per css px the same number
+ * came out twice as wide, ran past the texture's `spread` and was cut off
+ * square at its edge.
+ */
 export function makeHaloTexture(w, h, color, spread, radius) {
-  const {canvas, ctx} = makeCanvas(w + spread * 2, h + spread * 2);
+  const {canvas, ctx, dpr} = makeCanvas(w + spread * 2, h + spread * 2);
   ctx.shadowColor = color;
   ctx.fillStyle = color;
   for (let i = 0; i < 3; i++) {
-    ctx.shadowBlur = spread * (0.45 + i * 0.35);
+    ctx.shadowBlur = spread * (0.45 + i * 0.35) * (dpr / 2);
     roundRectPath(ctx, spread, spread, w, h, radius);
     ctx.fill();
   }
