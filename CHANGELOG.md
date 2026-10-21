@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.14
+
+**The badge word sits on the centre of the card.** `motion.reveal.badgeWord`
+put the font's em box on the card's centre rather than the letters, so with
+Bebas Neue the capitals stood a tenth of the size high — 48px on a desktop
+stage — and the gap the tracking leaves after the last letter pushed the
+word a few pixels left. The word is now measured for its own letters and
+centred on them, whatever font `theme.badgeFont` names. Nothing else about
+it changes.
+
 ## 0.5.13
 
 **The card's glow fades out instead of ending in a box on an ordinary
