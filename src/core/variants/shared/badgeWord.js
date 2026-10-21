@@ -69,13 +69,21 @@ function makeWordTexture(word, size, screen) {
   const measure = document.createElement('canvas').getContext('2d');
   measure.font = font;
   measure.letterSpacing = `${size * TRACKING}px`;
-  const textWidth = measure.measureText(word.label).width;
+  measure.textAlign = 'left';
+  measure.textBaseline = 'alphabetic';
+  // The letters themselves go on the centre, not the font's em box: centred
+  // on 'middle', Bebas's capitals sat a tenth of the size high, and the
+  // tracking left a gap after the last letter that pushed the word left
+  const ink = measure.measureText(word.label);
+  const inkWidth = ink.actualBoundingBoxLeft + ink.actualBoundingBoxRight;
+  const inkX = (ink.actualBoundingBoxRight - ink.actualBoundingBoxLeft) / 2;
+  const inkY = (ink.actualBoundingBoxDescent - ink.actualBoundingBoxAscent) / 2;
 
   // The fade is laid out against the stage, but the canvas only has to hold
   // what of the word survives it: nothing past the ellipse's far edge
   const rx = screen.width * FADE_X;
   const ry = screen.height * FADE_Y;
-  const width = Math.min(textWidth * STRETCH, rx * FADE_TO * 2) + STROKE * 2;
+  const width = Math.min(inkWidth * STRETCH, rx * FADE_TO * 2) + STROKE * 2;
   const height = Math.min(size * 1.3, ry * FADE_TO * 2);
   const canvas = document.createElement('canvas');
   canvas.width = Math.ceil(width * dpr);
@@ -88,11 +96,11 @@ function makeWordTexture(word, size, screen) {
   ctx.scale(STRETCH, 1);
   ctx.font = font;
   ctx.letterSpacing = `${size * TRACKING}px`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
   ctx.lineWidth = STROKE / STRETCH;
   ctx.strokeStyle = word.color;
-  ctx.strokeText(word.label, 0, 0);
+  ctx.strokeText(word.label, -inkX, -inkY);
   ctx.restore();
 
   // The fade, as an ellipse: a circle squashed to the stage's proportions
