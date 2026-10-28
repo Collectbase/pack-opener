@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.15
+
+**The slice card can keep its colour to itself until it turns.** Face down
+and charging, the card's light — the beam round its outline, the halo, the
+bloom and the printed star — was already the pull's colour, so the colour
+gave the pull away before the flip. `motion.reveal.chargeCycle` puts a
+gamble there instead: each time the beam rounds a corner the light takes a
+colour out of `motion.reveal.chargeCycleColors` (white, green, blue and
+purple by default), by chance and never the same twice running, and the
+pull's own colour comes up as the turning card shows its face. One colour
+in the list is a steady, neutral light. Off by default; `burst` and
+`carousel` are unchanged.
+
 ## 0.5.14
 
 **The badge word sits on the centre of the card.** `motion.reveal.badgeWord`
