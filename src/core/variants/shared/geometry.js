@@ -17,10 +17,15 @@ export const easeOut = t => 1 - Math.pow(1 - t, 3);
 export const easeInOut = t =>
   t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
-/** Sampled outline of the card, used by the beam that runs around it. */
+/**
+ * Sampled outline of the card, used by the beam that runs around it.
+ * `corners` is how far along it the middle of each rounded corner lies, in
+ * the order the beam meets them.
+ */
 export function outlinePath(w, h, radius, perCorner = 8) {
   const r = Math.max(0, Math.min(radius, Math.min(w, h) / 2));
   const points = [];
+  const cornerStarts = [];
   const corners = [
     {cx: w - r, cy: r, start: -Math.PI / 2},
     {cx: w - r, cy: h - r, start: 0},
@@ -36,6 +41,7 @@ export function outlinePath(w, h, radius, perCorner = 8) {
 
   for (let side = 0; side < 4; side++) {
     points.push(straights[side][0], straights[side][1]);
+    cornerStarts.push(points.length - 1);
     const {cx, cy, start} = corners[side];
     for (let i = 1; i < perCorner; i++) {
       const angle = start + (Math.PI / 2) * (i / perCorner);
@@ -57,7 +63,10 @@ export function outlinePath(w, h, radius, perCorner = 8) {
     points[0].y - points[points.length - 1].y,
   );
 
-  return {points, lengths, total: total + closing};
+  const arc = (Math.PI / 2) * r;
+  const cornerMids = cornerStarts.map(i => lengths[i] + arc / 2);
+
+  return {points, lengths, total: total + closing, corners: cornerMids};
 }
 
 export function pointAt(path, distance) {
