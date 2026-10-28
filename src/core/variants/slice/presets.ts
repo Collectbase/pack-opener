@@ -79,6 +79,8 @@ export const PRESETS: Record<
         haloAlpha: 0.95,
         glowDuring: {},
         glowFadeMs: 200,
+        chargeCycle: false,
+        chargeCycleColors: ['#ffffff', '#97d926', '#0da7f2', '#8442f0'],
         badgeWord: false,
         beamWidth: 3,
         beamAlpha: 0.9,

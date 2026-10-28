@@ -158,6 +158,16 @@ export interface MotionOptions {
     /** How long the glows take to go out or come back between phases. */
     glowFadeMs?: number;
     /**
+     * `slice`: while the card is face down its light keeps the pull's colour
+     * to itself — each time the beam rounds a corner it takes another out of
+     * `chargeCycleColors`, by chance, and the pull's own only comes up as the
+     * turning card shows its face. Off by default. Shows only where the glows
+     * are on (`glowDuring` charge and chargeHold).
+     */
+    chargeCycle?: boolean;
+    /** The colours the cycle picks from, as CSS strings. One is a steady, neutral light. */
+    chargeCycleColors?: string[];
+    /**
      * The pull's badge — `assets.card.badge`, its label in its colour — as a
      * giant outline word behind the card once it has landed (`slice`,
      * `burst`). Off by default; a pull without a badge gets no word, so the

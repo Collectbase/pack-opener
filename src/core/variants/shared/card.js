@@ -21,7 +21,7 @@ import {
   Sprite,
   Texture,
 } from 'pixi.js';
-import {mixNumbers} from '../../runtime/color';
+import {mixNumbers, toNumber} from '../../runtime/color';
 import {
   clamp,
   easeInOut,
@@ -51,6 +51,25 @@ const MESH_GRID = 10;
  * as spokes unless the turn is sampled finely.
  */
 const RIBBON_POINTS = 96;
+
+/** How long the wide light takes to follow the beam to a new colour (`chargeCycle`). */
+const CYCLE_FADE_MS = 100;
+
+/**
+ * A pick out of `count`, never `previous` again when there is a choice. Not
+ * the seeded generator the sparks use: a sequence that repeated every opening
+ * would soon read as part of the animation rather than a gamble.
+ */
+function nextCycleIndex(previous, count) {
+  if (count < 2) {
+    return 0;
+  }
+  if (previous < 0 || previous >= count) {
+    return Math.floor(Math.random() * count);
+  }
+  const pick = Math.floor(Math.random() * (count - 1));
+  return pick >= previous ? pick + 1 : pick;
+}
 
 /** What hangs below the card: the gap, the stand and the air under it. */
 function tailBelow(width, o) {
@@ -151,6 +170,10 @@ export class RevealCard {
     this.phase = null;
     this.glowLevel = 1;
     this.glowFade = null;
+    // The colour cycle while the card is face down (`veilAt`), and the colour
+    // it lends the beam in place of the pull's
+    this.cycle = null;
+    this.beamColor = null;
   }
 
   setOptions(options, colors) {
@@ -693,7 +716,7 @@ export class RevealCard {
   drawBeam(progress, settled) {
     const {width, height} = this.size;
     const path = this.beamPath;
-    const color = this.colors.glow;
+    const color = this.beamColor ?? this.colors.glow;
     const reveal = this.o.motion.reveal;
 
     this.beam.clear();
@@ -804,7 +827,7 @@ export class RevealCard {
       const at = this.viewPoint(p.x, p.y);
       points[i].set(at.x, at.y);
     }
-    glow.tint = this.colors.glow;
+    glow.tint = this.beamColor ?? this.colors.glow;
     glow.alpha = this.glowLevel * Math.min(1, reveal.beamGlowAlpha * 2);
     core.tint = this.colors.beam;
     core.alpha = this.glowLevel * reveal.beamAlpha;
@@ -944,21 +967,63 @@ export class RevealCard {
     this.node.x = this.restX + shake * Math.sin(clock * 0.083);
     this.node.y = this.spinY + shake * Math.cos(clock * 0.107);
 
+    // Laps pick up speed: the beam is slow while the card settles and racing
+    // by the time it turns
+    const laps = fx.chargeLaps * Math.pow(clock / fx.chargeMs, 1.5);
+    const veil = this.veilAt(laps, clock);
+    const color = veil ? veil.soft : colors.glow;
+    this.beamColor = veil ? veil.sharp : null;
+    if (veil) {
+      this.halo.tint = veil.soft;
+    }
+
     const flicker = 1 + 0.12 * energy * Math.sin(clock * 0.021);
-    this.bloom.tint = mixNumbers(colors.seam, colors.glow, energy);
+    this.bloom.tint = mixNumbers(colors.seam, color, energy);
     this.bloom.alpha = reveal.bloomAlpha * (0.3 + 0.45 * energy) * flicker;
     this.rim.alpha = reveal.rimAlpha * (0.45 + 0.55 * energy);
     this.halo.alpha = Math.min(
       1,
       reveal.haloAlpha * fx.chargeHalo * energy * flicker,
     );
-    this.emblem.tint = colors.glow;
+    this.emblem.tint = color;
     this.emblem.alpha = Math.min(1, fx.emblemAlpha * (0.2 + 0.8 * energy) * flicker);
 
-    // Laps pick up speed: the beam is slow while the card settles and racing
-    // by the time it turns
-    const laps = fx.chargeLaps * Math.pow(clock / fx.chargeMs, 1.5);
     this.drawBeam(laps % 1, 0.2 + 0.8 * energy);
+  }
+
+  /**
+   * The light while the card is face down, with `motion.reveal.chargeCycle`
+   * on: a colour out of `chargeCycleColors` each time the beam's head rounds a
+   * corner, picked by chance and never the same twice running, so nothing
+   * before the face shows tells what the pull is. `sharp` is the beam's,
+   * switched on the corner; `soft` is the wider light's, eased over to it so
+   * the glow behind the card does not strobe. Null when the cycle is off.
+   */
+  veilAt(laps, clock) {
+    const reveal = this.o.motion.reveal;
+    const palette = reveal.chargeCycle ? reveal.chargeCycleColors : null;
+    if (!palette || palette.length === 0) {
+      return null;
+    }
+    const {corners, total} = this.beamPath;
+    const into = (laps % 1) * total;
+    const rounded =
+      Math.floor(laps) * corners.length + corners.filter(d => d <= into).length;
+    if (!this.cycle) {
+      this.cycle = {rounded: -1, index: -1, from: 0, to: 0, at: 0, shown: 0};
+    }
+    const cycle = this.cycle;
+    if (rounded !== cycle.rounded) {
+      // The first colour is simply there; every one after it is eased into
+      const first = cycle.rounded < 0;
+      cycle.rounded = rounded;
+      cycle.index = nextCycleIndex(cycle.index, palette.length);
+      cycle.to = toNumber(palette[cycle.index]);
+      cycle.from = first ? cycle.to : cycle.shown;
+      cycle.at = clock;
+    }
+    cycle.shown = mixNumbers(cycle.from, cycle.to, (clock - cycle.at) / CYCLE_FADE_MS);
+    return {sharp: cycle.to, soft: cycle.shown};
   }
 
   /** The turn starts from wherever the sway left the card, so it never jumps. */
@@ -995,7 +1060,15 @@ export class RevealCard {
     this.node.y = this.spinY - this.size.height * fx.flipRise * arc;
 
     const edge = Math.exp(-Math.pow((t - 0.5) / 0.2, 2));
-    this.bloom.tint = colors.glow;
+    // Under a colour cycle the pull's own colour waits for the face: until
+    // the edge passes, the light keeps the last colour the cycle showed
+    const veiled = this.cycle && !edgeOnPassed ? this.cycle.shown : null;
+    const color = veiled ?? colors.glow;
+    if (this.cycle) {
+      this.halo.tint = color;
+      this.beamColor = veiled;
+    }
+    this.bloom.tint = color;
     this.bloom.alpha = Math.min(
       1,
       reveal.bloomAlpha * (0.75 + fx.flipFlare * edge),
@@ -1105,6 +1178,7 @@ export class RevealCard {
     // A replay starts with the glows lit, whatever the last ceremony ended on
     this.phase = null;
     this.fadeGlowTo(1, 0);
+    this.resetCycle();
     if (!this.node) {
       return;
     }
@@ -1148,6 +1222,7 @@ export class RevealCard {
    * wrapper and the clip alone decides how much of it shows.
    */
   park(cutY, rect) {
+    this.resetCycle();
     this.fromY = cutY + this.size.height / 2;
     this.node.y = this.fromY;
     this.node.alpha = 1;
@@ -1160,6 +1235,15 @@ export class RevealCard {
         : this.toY;
     this.turn.mask = this.clipG;
     this.clip(cutY);
+  }
+
+  /** A new opening draws its colours afresh, and the halo is the pull's again. */
+  resetCycle() {
+    if (this.cycle && this.halo) {
+      this.halo.tint = this.colors.glow;
+    }
+    this.cycle = null;
+    this.beamColor = null;
   }
 
   /** Whether the card still has to rise onto its stand after it turns. */

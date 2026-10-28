@@ -391,6 +391,28 @@ const CAROUSEL_GROUPS: {title: string; variants?: string[]; controls: Control[]}
     ],
   },
   {
+    title: 'Colour cycle',
+    variants: ['slice'],
+    controls: [
+      {
+        kind: 'plain',
+        path: 'motion.reveal.chargeCycle',
+        label: 'Cycle colours before the flip (on / off)',
+        placeholder: 'off',
+        parse: raw => raw.trim() === 'on',
+        format: value => (value ? 'on' : 'off'),
+      },
+      {
+        kind: 'plain',
+        path: 'motion.reveal.chargeCycleColors',
+        label: 'Colours, comma separated',
+        placeholder: '#ffffff, #97d926, #0da7f2, #8442f0',
+        parse: raw => raw.split(',').map(c => c.trim()).filter(Boolean),
+        format: value => (Array.isArray(value) ? value.join(', ') : ''),
+      },
+    ],
+  },
+  {
     title: 'Story',
     variants: ['carousel'],
     controls: [
