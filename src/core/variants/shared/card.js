@@ -181,8 +181,9 @@ export class RevealCard {
     this.colors = colors;
     // The one glow baked into a texture takes its colour as a tint, so a colour
     // that arrives mid-ceremony — the pull's tier, known once the pack is open —
-    // reaches it along with the rest
-    if (this.halo) {
+    // reaches it along with the rest. Not while a colour cycle still keeps it
+    // from a card lying face down: that would show it for a frame
+    if (this.halo && !(this.cycle && !this.turnedOver)) {
       this.halo.tint = colors.glow;
     }
     // A retune that turns the glows of the phase on or off shows at once, on a
@@ -1003,6 +1004,9 @@ export class RevealCard {
     const reveal = this.o.motion.reveal;
     const palette = reveal.chargeCycle ? reveal.chargeCycleColors : null;
     if (!palette || palette.length === 0) {
+      // Turned off mid-charge: the card goes back to its pull's colour now,
+      // not on the flip
+      this.resetCycle();
       return null;
     }
     const {corners, total} = this.beamPath;

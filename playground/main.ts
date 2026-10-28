@@ -407,7 +407,11 @@ const CAROUSEL_GROUPS: {title: string; variants?: string[]; controls: Control[]}
         path: 'motion.reveal.chargeCycleColors',
         label: 'Colours, comma separated',
         placeholder: '#ffffff, #97d926, #0da7f2, #8442f0',
-        parse: raw => raw.split(',').map(c => c.trim()).filter(Boolean),
+        // Empty is the preset's palette, not a cycle with nothing to show
+        parse: raw => {
+          const colours = raw.split(',').map(c => c.trim()).filter(Boolean);
+          return colours.length > 0 ? colours : undefined;
+        },
         format: value => (Array.isArray(value) ? value.join(', ') : ''),
       },
     ],
