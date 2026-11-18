@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.16
+
+**The slice charge cycle ends on the pull's colour.** With
+`motion.reveal.chargeCycle` on, the last colour the beam took before the
+flip was as random as the rest, so a common pull could charge in purple and
+turn over white. The cycle now lands on the pull's own colour at the last
+corner the beam rounds at least 180ms before the card turns, and keeps it
+into the flip — whatever the charge's length and `motion.speed`, and when
+the artwork is late too. The colours before it are picked as before. Off by
+default; nothing changes with the cycle off, nor for `burst` and `carousel`.
+
 ## 0.5.15
 
 **The slice card can keep its colour to itself until it turns.** Face down
