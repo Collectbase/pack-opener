@@ -56,6 +56,14 @@ const RIBBON_POINTS = 96;
 const CYCLE_FADE_MS = 100;
 
 /**
+ * The least the pull's colour shows before the card turns (`chargeCycle`):
+ * the cycle lands on it at the last corner the beam rounds this long or more
+ * before the turn — 180–300ms with the slice defaults, longer when the beam
+ * runs slower — so it is seen, not a flash.
+ */
+const CYCLE_LANDING_MS = 180;
+
+/**
  * A pick out of `count`, never `previous` again when there is a choice. Not
  * the seeded generator the sparks use: a sequence that repeated every opening
  * would soon read as part of the animation rather than a gamble.
@@ -950,9 +958,10 @@ export class RevealCard {
    * colour, and towards the end it trembles. `level` runs 0..1 over the
    * build-up and stays at 1 while the artwork is late; `clock` is ms since it
    * began, so the sway and the beam carry on unbroken through the wait. `fx`
-   * is the mechanic's own numbers (`slice`).
+   * is the mechanic's own numbers (`slice`). `untilFlipMs` is how long before
+   * the card turns, null while that is not known yet (the artwork is late).
    */
-  charge(level, clock, fx, colors) {
+  charge(level, clock, fx, colors, untilFlipMs = null) {
     const reveal = this.o.motion.reveal;
     const energy = level * level;
     this.focal = fx.focal * this.size.height;
@@ -970,8 +979,13 @@ export class RevealCard {
 
     // Laps pick up speed: the beam is slow while the card settles and racing
     // by the time it turns
-    const laps = fx.chargeLaps * Math.pow(clock / fx.chargeMs, 1.5);
-    const veil = this.veilAt(laps, clock);
+    const lapsAt = ms => fx.chargeLaps * Math.pow(Math.max(0, ms) / fx.chargeMs, 1.5);
+    const laps = lapsAt(clock);
+    // Where the beam will be `CYCLE_LANDING_MS` before the card turns, once
+    // the turn is known: the cycle lands on the last corner up to there
+    const landAtLaps =
+      untilFlipMs === null ? null : lapsAt(clock + untilFlipMs - CYCLE_LANDING_MS);
+    const veil = this.veilAt(laps, clock, landAtLaps);
     const color = veil ? veil.soft : colors.glow;
     this.beamColor = veil ? veil.sharp : null;
     if (veil) {
@@ -996,11 +1010,17 @@ export class RevealCard {
    * The light while the card is face down, with `motion.reveal.chargeCycle`
    * on: a colour out of `chargeCycleColors` each time the beam's head rounds a
    * corner, picked by chance and never the same twice running, so nothing
-   * before the face shows tells what the pull is. `sharp` is the beam's,
-   * switched on the corner; `soft` is the wider light's, eased over to it so
-   * the glow behind the card does not strobe. Null when the cycle is off.
+   * before the face shows tells what the pull is. The last one is the pull's
+   * own: the cycle lands on it at the last corner the beam rounds at least
+   * `CYCLE_LANDING_MS` before the turn (`landAtLaps`, where the beam is then;
+   * null while the turn is not known), so the face never shows a colour the
+   * cycle did not end on, however slow or fast the beam runs. A turn learnt
+   * about too late for that corner lands it there and then.
+   * `sharp` is the beam's, switched on the corner; `soft` is the wider
+   * light's, eased over to it so the glow behind the card does not strobe.
+   * Null when the cycle is off.
    */
-  veilAt(laps, clock) {
+  veilAt(laps, clock, landAtLaps) {
     const reveal = this.o.motion.reveal;
     const palette = reveal.chargeCycle ? reveal.chargeCycleColors : null;
     if (!palette || palette.length === 0) {
@@ -1009,25 +1029,39 @@ export class RevealCard {
       this.resetCycle();
       return null;
     }
-    const {corners, total} = this.beamPath;
-    const into = (laps % 1) * total;
-    const rounded =
-      Math.floor(laps) * corners.length + corners.filter(d => d <= into).length;
+    const rounded = this.cornersRounded(laps);
     if (!this.cycle) {
-      this.cycle = {rounded: -1, index: -1, from: 0, to: 0, at: 0, shown: 0};
+      this.cycle = {rounded: -1, index: -1, from: 0, to: 0, at: 0, shown: 0, landed: false};
     }
     const cycle = this.cycle;
-    if (rounded !== cycle.rounded) {
+    const cornered = rounded !== cycle.rounded;
+    const lands =
+      !cycle.landed && landAtLaps !== null && rounded >= this.cornersRounded(landAtLaps);
+    if (lands || (cornered && !cycle.landed)) {
       // The first colour is simply there; every one after it is eased into
       const first = cycle.rounded < 0;
-      cycle.rounded = rounded;
-      cycle.index = nextCycleIndex(cycle.index, palette.length);
-      cycle.to = toNumber(palette[cycle.index]);
+      cycle.landed = lands;
+      if (!lands) {
+        cycle.index = nextCycleIndex(cycle.index, palette.length);
+      }
+      cycle.to = lands ? this.colors.glow : toNumber(palette[cycle.index]);
       cycle.from = first ? cycle.to : cycle.shown;
       cycle.at = clock;
     }
+    cycle.rounded = rounded;
+    if (cycle.landed) {
+      // The pull's colour may still be retuned while the card lies face down
+      cycle.to = this.colors.glow;
+    }
     cycle.shown = mixNumbers(cycle.from, cycle.to, (clock - cycle.at) / CYCLE_FADE_MS);
     return {sharp: cycle.to, soft: cycle.shown};
+  }
+
+  /** How many corners of the outline the beam's head has rounded `laps` in. */
+  cornersRounded(laps) {
+    const {corners, total} = this.beamPath;
+    const into = (laps % 1) * total;
+    return Math.floor(laps) * corners.length + corners.filter(d => d <= into).length;
   }
 
   /** The turn starts from wherever the sway left the card, so it never jumps. */
