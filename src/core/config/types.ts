@@ -160,8 +160,9 @@ export interface MotionOptions {
     /**
      * `slice`: while the card is face down its light keeps the pull's colour
      * to itself — each time the beam rounds a corner it takes another out of
-     * `chargeCycleColors`, by chance, and the pull's own only comes up as the
-     * turning card shows its face. Off by default. Shows only where the glows
+     * `chargeCycleColors`, by chance, and the cycle ends on the pull's own at
+     * the last corner before the card turns, so the colour the face shows is
+     * the one it landed on. Off by default. Shows only where the glows
      * are on (`glowDuring` charge and chargeHold).
      */
     chargeCycle?: boolean;

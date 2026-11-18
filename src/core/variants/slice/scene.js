@@ -365,6 +365,7 @@ export class PackScene {
       // as this one ends, artwork or not. The wait is counted in wall time,
       // which never runs slower than the scene's, so it is never a hold early
       if (waited + this.o.slice.chargeWaitMs >= this.o.assets.card.timeoutMs) {
+        this.anim.turnsAtEnd = true;
         this.announceLegacyUnveil(this.o.slice.chargeWaitMs);
       }
       return;
@@ -765,12 +766,17 @@ export class PackScene {
         this.dirty = true;
       } else if (anim.kind === 'charge' || anim.kind === 'chargeHold') {
         this.chargeClock += deltaMS;
+        // The card turns as this stretch ends once its artwork is in, or on
+        // the wait's last hold (`afterCharge`); until then it is not known when
+        const untilFlipMs =
+          this.card.hasArt || anim.turnsAtEnd ? anim.duration - anim.elapsed : null;
         // The build-up is over once the first pass is; a hold keeps it at its peak
         this.card.charge(
           anim.kind === 'charge' ? t : 1,
           this.chargeClock,
           fx,
           this.colors,
+          untilFlipMs,
         );
       } else if (anim.kind === 'flip') {
         // Built again to the artwork's shape, the card rests elsewhere: its
