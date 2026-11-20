@@ -141,6 +141,8 @@ export function resolveOptions(options: PackOpenerOptions): ResolvedOptions {
       muted: options.sound?.muted ?? false,
       badge: options.sound?.badge || options.assets?.card?.badge?.label || '',
       samples: options.sound?.samples ?? {},
+      // The climb's score; the others have one each
+      ...(options.sound?.design ? {design: options.sound.design} : {}),
     },
     // Only for the mechanic that owns them: a preset without `interaction` has
     // no cut to read, one without `charge` has no pressure to build. Filling
@@ -156,6 +158,7 @@ export function resolveOptions(options: PackOpenerOptions): ResolvedOptions {
     carousel: preset.carousel
       ? merge(preset.carousel, options.carousel)
       : undefined,
+    climb: preset.climb ? merge(preset.climb, options.climb) : undefined,
   } as ResolvedOptions;
 
   // Read before `applySpeed`, which bakes the factor in and resets it to 1
@@ -210,6 +213,18 @@ export function resolveOptions(options: PackOpenerOptions): ResolvedOptions {
       'flipMs',
       'settleMs',
       'hoverMs',
+    ]);
+  }
+  if (resolved.climb) {
+    resolved.climb = scaleDurations(resolved.climb, speed, [
+      'introMs',
+      'spinMs',
+      'reelMinMs',
+      'reelMaxMs',
+      'stopStaggerMs',
+      'flipStaggerMs',
+      'hitHoldMs',
+      'rollUpMs',
     ]);
   }
   return resolved;

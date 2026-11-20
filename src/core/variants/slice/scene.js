@@ -647,7 +647,7 @@ export class PackScene {
   /**
    * The phases 0.4 scored the ceremony by — `spin`, `spinHold`, `unveil`,
    * `beam` — announced beside this ceremony's own for hosts written against
-   * them. Deprecated; they go in 0.6.
+   * them. Deprecated, kept for now (to be removed in a later release).
    *
    * A 0.4 score counts its leads to the landing from them: `spin + unveil +
    * beam` after `spin`, `unveil + beam` after `unveil`, `beam` after `beam`,

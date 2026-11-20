@@ -1,5 +1,5 @@
-import type {VariantName} from '../config/types';
-import type {SoundEngine, Voice} from './engine';
+import type {SoundDesign, VariantName} from '../config/types';
+import type {PlayOptions, SoundEngine, Voice} from './engine';
 
 /**
  * How long each phase runs, as the scene announces it (the library's
@@ -40,6 +40,12 @@ export type SceneEvent =
   | {type: 'phase'; name: string; durationMs?: number}
   | {type: 'opened'}
   | {type: 'revealed'}
+  | {type: 'cardSettled'; index: number; colorIndex?: number; skipped?: boolean}
+  | {type: 'cardRevealed'; index: number; skipped?: boolean}
+  | {type: 'hitsRevealed'; skipped?: boolean}
+  | {type: 'allRevealed'; skipped?: boolean}
+  /** A moment the scene, or its host, says a sound may mark (`MESSAGES.CUE`), with a number it may carry. */
+  | {type: 'cue'; name: string; index: number; value?: number}
   /** The scene was wound back to the start: nothing cued for the old run may sound. */
   | {type: 'reset'};
 
@@ -526,11 +532,212 @@ function carouselScore(engine: SoundEngine): Score {
   }
 }
 
+/** A semitone step as a playback rate. */
+const semis = (n: number) => Math.pow(2, n / 12);
+/** The major pentatonic the musical design climbs, in semitones. */
+const PENTA = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21];
+/** The kalimba's note sits 11.83 semitones under C5: every note is brought up to the scale's C first. */
+const NOTE_TUNE = semis(11.83);
+/** How long the ratchet waits between ticks at 1×, in ms. */
+const RATCHET_MS = 125;
+/** How long after the hits' boom their rays' shimmer comes in, in ms. */
+const SHIMMER_AFTER_MS = 150;
+/** How far apart in pitch a pop sounds from one tier to the next, and how much fuller. */
+const POP_STEP = 0.07;
+
+/**
+ * The climb score, in one of three designs the operator picks (`sound.design`, chosen by ear on the second
+ * stand, 20.11.2026):
+ *
+ * - `impact` — a pause, then the blow: a deep pulse while the packs spin, closer and louder towards the stop
+ *   (the scene tells it, so Speed up hurries it), a riser ending on the stop, one lock cascade for every stop,
+ *   a glass pop for each pack bursting, deeper and fuller the higher its tier, the hits trembling on a drum roll
+ *   and landing on a sub boom under the flash, a shimmer for their rays, a drum for every beat of the combo.
+ * - `arcade` — the machine: a ratchet the whole reel (quicker on Speed up), a clack for every stop, bright pops,
+ *   a boom and a fanfare on the hits, a shower of coins for a sale.
+ * - `music` — every moment a note of one chord on a kalimba: the stops climb a pentatonic, each card sounds its
+ *   tier, the hits a chord under a hall boom, the combo climbs, the coins land on the top note.
+ *
+ * All three: a deep whoosh as the items fly in, the prices' rush into the total, a rubber stamp for a card sold,
+ * the coins (`cue` `coins`) and their landing in the balance (`cue` `ding`, the host's), a whoosh for a Speed up,
+ * the cards on show whisked away. Whatever the host skipped past is not replayed: events marked `skipped` are
+ * silent. A cue the bank lacks falls back to one of the score's older sounds.
+ */
+function climbScore(engine: SoundEngine, design: () => SoundDesign): Score {
+  const voices: Voice[] = [];
+  // This ceremony: whether it has taken off, how many items have come to rest
+  let tookOff = false;
+  let rests = 0;
+  // The machine's ratchet: its timer, and the pace it ticks at
+  let ratchet: ReturnType<typeof setTimeout> | null = null;
+  let pace = 1;
+
+  const play = (cue: string, fallback: string, options: PlayOptions = {}) =>
+    keep(voices, engine.play(own(engine, cue, fallback), options));
+  const note = (semitones: number, gain: number, delayMs = 0) =>
+    play('climb-note', 'chime', {rate: NOTE_TUNE * semis(semitones), gain, delayMs});
+  const stopRatchet = () => {
+    if (ratchet !== null) clearTimeout(ratchet);
+    ratchet = null;
+  };
+  const tick = () => {
+    play('climb-ratchet', 'ring-step', {gain: 0.7, rate: 1 + (Math.random() * 2 - 1) * 0.025});
+    ratchet = setTimeout(tick, RATCHET_MS / pace);
+  };
+  const stopEverything = (fadeMs: number) => {
+    stopRatchet();
+    stopAll(voices, fadeMs);
+  };
+  const begin = () => {
+    tookOff = false;
+    rests = 0;
+    pace = 1;
+  };
+
+  const phase = (name: string) => {
+    const mode = design();
+    switch (name) {
+      case 'intro':
+        stopEverything(40);
+        begin();
+        keep(voices, engine.play('whoosh-deep', {gain: mode === 'impact' ? 1.5 : 1}));
+        break;
+      case 'reel':
+        if (mode === 'arcade' && ratchet === null) ratchet = setTimeout(tick, RATCHET_MS / 2);
+        break;
+      case 'settle':
+        stopRatchet();
+        if (mode === 'impact') play('climb-cascade', 'ring-step');
+        break;
+      case 'gather':
+        play('climb-gather', 'swish');
+        break;
+      case 'done':
+        stopRatchet();
+        break;
+      default:
+        break;
+    }
+  };
+
+  const cue = (name: string, index: number, value: number) => {
+    const mode = design();
+    switch (name) {
+      case 'takeoff':
+        if (mode === 'impact' && !tookOff) play('climb-takeoff', 'swish');
+        tookOff = true;
+        break;
+      case 'pulse':
+        if (mode === 'arcade') break;
+        // Louder towards the stop
+        play('climb-pulse', 'sub-hit', {gain: 1.5 * (mode === 'music' ? 0.6 : 0.8 + 0.25 * clamp01(value))});
+        break;
+      case 'riser':
+        // Told `value` ms ahead of the stop: started its own length before it, so it ends on it
+        if (mode === 'impact') play('climb-riser', 'whoosh-deep', {gain: 1.5, delayMs: Math.max(0, value - engine.duration('climb-riser'))});
+        break;
+      case 'burst': {
+        const rank = Math.max(0, value);
+        if (mode === 'music') {
+          note(PENTA[Math.min(PENTA.length - 1, rank + 2)] - 5, 0.85);
+        } else {
+          const jitter = 1 + (Math.random() * 2 - 1) * 0.025;
+          const rate = (mode === 'arcade' ? 0.95 + POP_STEP * rank : 1.1 - POP_STEP * rank) * jitter;
+          play('climb-pop', 'swish', {rate, gain: 0.62 * (0.8 + POP_STEP * rank)});
+        }
+        break;
+      }
+      case 'rattle':
+        if (mode === 'impact') play('climb-rattle', 'engine-low', {gain: 1.5});
+        break;
+      case 'beat':
+        if (mode === 'music') note(12 + PENTA[Math.max(0, index) % 5], 0.8);
+        else play('climb-beat', 'impact', {rate: semis(2 * Math.max(0, index))});
+        break;
+      case 'stamp':
+        play('climb-stamp', 'card-place');
+        break;
+      case 'coins':
+        if (mode === 'arcade') play('climb-shower', 'chime');
+        else play('climb-coins', 'chime');
+        break;
+      case 'ding':
+        if (mode === 'impact') {
+          play('climb-ding-silver', 'chime', {gain: 1.5});
+        } else {
+          play('climb-ding-desk', 'chime');
+          if (mode === 'music') note(24, 0.6);
+        }
+        break;
+      case 'speed':
+        if (value > 0) pace = value;
+        // The arcade's ratchet takes the new pace from its next tick
+        play('climb-speed', 'swish');
+        break;
+      case 'leave':
+        play('climb-leave', 'swish');
+        break;
+      default:
+        break;
+    }
+  };
+
+  return {
+    onEvent(event) {
+      switch (event.type) {
+        case 'phase':
+          phase(event.name);
+          break;
+        case 'cue':
+          cue(event.name, event.index, event.value ?? 0);
+          break;
+        case 'cardSettled': {
+          if (event.skipped) break;
+          const mode = design();
+          if (mode === 'arcade') play('climb-clack', 'ring-step', {rate: 1 + 0.03 * rests});
+          else if (mode === 'music') note(PENTA[rests % PENTA.length] - 12, 0.7);
+          rests++;
+          break;
+        }
+        case 'hitsRevealed': {
+          if (event.skipped) break;
+          const mode = design();
+          if (mode === 'impact') {
+            play('climb-boom-sub', 'impact', {gain: 1.5});
+            keep(voices, engine.play('magic', {delayMs: SHIMMER_AFTER_MS}));
+          } else if (mode === 'arcade') {
+            play('climb-boom-hall', 'impact');
+            play('climb-fanfare', 'magic', {delayMs: 120});
+          } else {
+            play('climb-boom-hall', 'impact');
+            for (const step of [0, 4, 7, 12]) note(step, 0.6, 20);
+            play('climb-shimmer', 'magic', {delayMs: SHIMMER_AFTER_MS});
+          }
+          break;
+        }
+        case 'reset':
+          stopEverything(40);
+          begin();
+          break;
+        default:
+          break;
+      }
+    },
+    dispose() {
+      stopEverything(60);
+    },
+  };
+}
+
+const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
+
 export function createScore(
   engine: SoundEngine,
   variant: VariantName,
   tier: () => LandingTier,
+  design: () => SoundDesign = () => 'impact',
 ): Score {
   if (variant === 'carousel') return carouselScore(engine);
+  if (variant === 'climb') return climbScore(engine, design);
   return variant === 'burst' ? burstScore(engine, tier) : sliceScore(engine, tier);
 }

@@ -118,7 +118,7 @@ export function makeCometTexture(width) {
 }
 
 /** `ctx.roundRect` is missing on older WebViews. */
-function roundRectPath(ctx, x, y, w, h, r) {
+export function roundRectPath(ctx, x, y, w, h, r) {
   const radius = Math.max(0, Math.min(r, Math.min(w, h) / 2));
   ctx.beginPath();
   ctx.moveTo(x + radius, y);

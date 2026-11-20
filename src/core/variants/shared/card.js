@@ -41,6 +41,7 @@ import {
   makeSheenTexture,
   makeTwinkleTexture,
 } from './textures';
+import {CYCLE_FADE_MS, nextCycleIndex} from './colorCycle';
 
 /** Grid of the perspective meshes: fine enough that the artwork does not bend between vertices. */
 const MESH_GRID = 10;
@@ -52,9 +53,6 @@ const MESH_GRID = 10;
  */
 const RIBBON_POINTS = 96;
 
-/** How long the wide light takes to follow the beam to a new colour (`chargeCycle`). */
-const CYCLE_FADE_MS = 100;
-
 /**
  * The least the pull's colour shows before the card turns (`chargeCycle`):
  * the cycle lands on it at the last corner the beam rounds this long or more
@@ -62,22 +60,6 @@ const CYCLE_FADE_MS = 100;
  * runs slower — so it is seen, not a flash.
  */
 const CYCLE_LANDING_MS = 180;
-
-/**
- * A pick out of `count`, never `previous` again when there is a choice. Not
- * the seeded generator the sparks use: a sequence that repeated every opening
- * would soon read as part of the animation rather than a gamble.
- */
-function nextCycleIndex(previous, count) {
-  if (count < 2) {
-    return 0;
-  }
-  if (previous < 0 || previous >= count) {
-    return Math.floor(Math.random() * count);
-  }
-  const pick = Math.floor(Math.random() * (count - 1));
-  return pick >= previous ? pick + 1 : pick;
-}
 
 /** What hangs below the card: the gap, the stand and the air under it. */
 function tailBelow(width, o) {

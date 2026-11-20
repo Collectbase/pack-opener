@@ -11,7 +11,7 @@
  */
 
 export interface PlayOptions {
-  /** 0..1, before the master level. */
+  /** The voice's level before the master's: 1 as the file was levelled, more to lift a quiet one. */
   gain?: number;
   /** Playback rate; 1 = as recorded. */
   rate?: number;
@@ -37,12 +37,18 @@ export interface SoundEngine {
   setLevel(level: number): void;
   register(cue: string, buffer: AudioBuffer): void;
   has(cue: string): boolean;
+  /** How long `cue` runs as recorded, in ms; 0 for one not in the bank. */
+  duration(cue: string): number;
   play(cue: string, options?: PlayOptions): Voice | null;
   stopAll(fadeMs?: number): void;
   close(): void;
 }
 
 const MIN_GAIN = 0.0001;
+/** The most voices of one cue at once: a ninth stop or pop takes the oldest one's place rather than piling up. */
+const VOICES_PER_CUE = 3;
+/** The limiter at the end of the chain, so cues landing together never clip. */
+const LIMITER = {threshold: -3, knee: 3, ratio: 12, attack: 0.003, release: 0.15};
 
 function makeContext(): AudioContext | null {
   if (typeof window === 'undefined') return null;
@@ -74,6 +80,7 @@ export function createSoundEngine(): SoundEngine {
   let closed = false;
   const buffers = new Map<string, AudioBuffer>();
   const voices = new Set<Voice>();
+  const byCue = new Map<string, Voice[]>();
 
   const ensure = (): AudioContext | null => {
     if (context || closed) return context;
@@ -81,7 +88,20 @@ export function createSoundEngine(): SoundEngine {
     if (!context) return null;
     master = context.createGain();
     master.gain.value = level;
-    master.connect(context.destination);
+    let out: AudioNode = context.destination;
+    try {
+      const limiter = context.createDynamicsCompressor();
+      limiter.threshold.value = LIMITER.threshold;
+      limiter.knee.value = LIMITER.knee;
+      limiter.ratio.value = LIMITER.ratio;
+      limiter.attack.value = LIMITER.attack;
+      limiter.release.value = LIMITER.release;
+      limiter.connect(context.destination);
+      out = limiter;
+    } catch {
+      /* no compressor in this context: straight out */
+    }
+    master.connect(out);
     return context;
   };
 
@@ -106,6 +126,10 @@ export function createSoundEngine(): SoundEngine {
     },
     has(cue) {
       return buffers.has(cue);
+    },
+    duration(cue) {
+      const buffer = buffers.get(cue);
+      return buffer ? buffer.duration * 1000 : 0;
     },
     play(cue, options = {}) {
       const buffer = buffers.get(cue);
@@ -155,11 +179,17 @@ export function createSoundEngine(): SoundEngine {
           source.playbackRate.setTargetAtTime(value, ctx.currentTime, rampMs / 1000);
         },
       };
+      const same = byCue.get(cue) ?? [];
+      byCue.set(cue, same);
       source.onended = () => {
         live = false;
         voices.delete(voice);
+        const at = same.indexOf(voice);
+        if (at >= 0) same.splice(at, 1);
       };
       voices.add(voice);
+      same.push(voice);
+      if (same.length > VOICES_PER_CUE) same.shift()?.stop(30);
       return voice;
     },
     stopAll(fadeMs = 0) {
@@ -168,6 +198,7 @@ export function createSoundEngine(): SoundEngine {
     close() {
       closed = true;
       voices.clear();
+      byCue.clear();
       void context?.close().catch(() => {});
       context = null;
       master = null;

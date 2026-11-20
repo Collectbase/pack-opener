@@ -6,9 +6,9 @@
  * module), `preset` picks a set of numbers for that mechanic. New styles arrive
  * as new variants, new looks as new presets — neither changes this shape.
  */
-export type VariantName = 'slice' | 'burst' | 'carousel';
+export type VariantName = 'slice' | 'burst' | 'carousel' | 'climb';
 
-export type PresetName = 'classic' | 'charged' | 'showcase';
+export type PresetName = 'classic' | 'charged' | 'showcase' | 'spectrum';
 
 /** Colour in any CSS form the scene can parse: `#rgb`, `#rrggbb`, `rgba(...)`. */
 export type Color = string;
@@ -655,6 +655,149 @@ export interface CarouselOptions {
   reflectionGap?: number;
 }
 
+/**
+ * `climb` only: the whole purchase on one stage, as a grid of as many items
+ * as packs were bought. Each starts as the pack itself, in its own
+ * silhouette; they spin in changing colours, each on its own, stop one by
+ * one on their tier's colour and turn into their cards — the ordinary ones
+ * in grid order, the hits last and together.
+ */
+export interface ClimbOptions {
+  /**
+   * How many items: one stands alone and large; more stand in the columns
+   * that show them largest on the stage they have — ten stand 4-4-2 on a
+   * phone and 5-5 on a wide screen — every card the same shape, with room
+   * under each for its price and tier.
+   */
+  count?: number;
+  /**
+   * The colours an item glows in while it spins, picked at random and never
+   * the same twice running, so the spin gives nothing away. Lowest tier first.
+   * Each is held for 0.31–0.58 of a turn — 280–520 ms at the preset's 900 ms
+   * `spinMs` — so the colours keep pace with the spin: `spinMs`, and
+   * `motion.speed` through it, sets how fast they change, and `setSpeed`
+   * hurries them with the rest.
+   */
+  cycleColors?: string[];
+  /** How far the artwork itself takes the colour, 0..1: 0 leaves it alone. */
+  tint?: number;
+  /**
+   * How far a spinning pack is flooded with its colour as a coloured foil,
+   * 0..1: the colour takes the artwork's shadows and lights, so the picture
+   * shows through. 0 leaves the pack as it is (`tint` still applies).
+   */
+  flood?: number;
+  /** A white flash over the stage as the hits turn. */
+  flash?: boolean;
+  /**
+   * How hard the stage is shaken, 0..1 — 0 for not at all: by the pack
+   * bursting into the grid, by the first card landing on its face, by the
+   * hits as they come round and land, by every beat of the combo, and by the
+   * host's own `shake()`. What shakes is the cards and what they throw off;
+   * the prices, the tiers and the combo stand still, and so does the host's
+   * page.
+   */
+  shake?: number;
+  /**
+   * What a card throws off as its face comes up — a pop of its light, a
+   * burst in the style `reveal` names, glints, one band of sheen across it,
+   * and a star at a hit's corner. Off, a card just turns.
+   */
+  sparkle?: boolean;
+  /**
+   * The style of that burst: `shatter` (the preset's) — the pack does not
+   * turn: it bursts off its card in pieces of its own coloured foil, the
+   * card punching up in its place, with the flare's light; `flare` — a ring of light and short rays in the
+   * tier's colour, with stars; `motes` — soft glowing motes rising off the
+   * card; `pixels` — small square sparks thrown out that drift up like the
+   * dust behind the stage.
+   */
+  reveal?: 'shatter' | 'flare' | 'motes' | 'pixels';
+  /**
+   * Where the cards' prices gather once every card is up, in css px from the
+   * stage's top (always in the middle of its width): the place the host
+   * writes the total. Negative (the default), a little above the grid, in
+   * the band the host keeps free over it (`layout.stage.reserveTop`).
+   */
+  gatherY?: number;
+  /**
+   * Dust behind the stage: small square motes, most of them white and the
+   * rest in the reel's colours, thick at the foot of the stage and thinning
+   * upward, rising all the time and shaken with the stage, the far ones less
+   * than the near. While it rises the stage is drawn all the time, at
+   * `performance.idleFps`, and never goes to sleep. Off, the stage has
+   * nothing behind the items.
+   */
+  dust?: boolean;
+  /**
+   * The price under a turned card: what goes before and after the number, and
+   * the decimals it keeps. Given, not looked up: the host's currency is not
+   * always an ISO one.
+   */
+  price?: {prefix?: string; suffix?: string; decimals?: number};
+  /**
+   * The family the prices, the tiers under them and the combo are set in, as
+   * CSS names it — the host's own, so the stage reads as its page does. A web
+   * font works once the host's page has loaded it; keep a system family at
+   * the end.
+   */
+  font?: string;
+  /** The items arriving: one flies in from the centre and splits into `count`. */
+  introMs?: number;
+  /**
+   * The turn the ceremony is paced by: a stop takes half of it, a
+   * card turns over in half of it. On the reel itself an item turns one and
+   * a half to two times as fast, each at a speed of its own, and takes a
+   * fresh colour each time it stands edge-on.
+   */
+  spinMs?: number;
+  /**
+   * The shortest the reel spins, however early the cards arrive — counted
+   * from the ceremony's start, the intro included. Each ceremony draws its
+   * own length between this and `reelMaxMs`; Speed up shortens it.
+   */
+  reelMinMs?: number;
+  /** The longest a ceremony's drawn reel may be (see `reelMinMs`); at or under it, every reel runs `reelMinMs`. */
+  reelMaxMs?: number;
+  /** Between one item stopping and the next, in grid order — closer on a big grid, all of them stopped within half a second. */
+  stopStaggerMs?: number;
+  /** Between one card turning and the next. */
+  flipStaggerMs?: number;
+  /** The pause before the hits turn. */
+  hitHoldMs?: number;
+  /** The combo's landing, and the wait before a card sold at purchase goes dark. (A price counts up in its own, fixed time.) */
+  rollUpMs?: number;
+}
+
+/**
+ * A card a climb item turns into. `color` is the one the item stops on — its
+ * tier's; a `hit` waits for the others and turns with the hits, last;
+ * `price` is written under it once it has turned — `null` or left out, no
+ * price — over its `tier`'s name in the tier's light. A card `sold` already
+ * (sold with the purchase) goes dark once its price is counted, `SOLD` in
+ * place of its tier; one sold later is told with `markSold`.
+ */
+export interface ClimbCard {
+  /**
+   * The card's artwork — or a promise of its url, for a host that fetches
+   * it itself: the items stop on their colours without waiting for it, and
+   * the card waits for it only to turn.
+   */
+  url: string | Promise<string>;
+  color: string;
+  hit?: boolean;
+  price?: number | null;
+  tier?: string | null;
+  sold?: boolean;
+  /**
+   * One of the cards the combo's words name — the hits of the tier it calls
+   * out. The combo counts these out, one beat each, in their light. Unmarked,
+   * the scene picks the hits of the colour standing highest in the palette
+   * among those that came up twice or more.
+   */
+  combo?: boolean;
+}
+
 /** A box on the stage, in css px. */
 export interface StageRect {
   left: number;
@@ -781,6 +924,13 @@ export interface SliceOptions {
  * scored on the scene's own events, played with Web Audio wherever the scene
  * runs. Off unless the host turns it on.
  */
+/**
+ * How the climb is scored: `impact` — a pause, then the blow (a deep pulse on the spin, a riser into the stop, a
+ * glass pop per card, a boom under the hits); `arcade` — the machine (a ratchet, a clack per stop, a fanfare, a
+ * shower of coins); `music` — every moment a note of one chord on a kalimba. The other mechanics have one score.
+ */
+export type SoundDesign = 'impact' | 'arcade' | 'music';
+
 export interface SoundOptions {
   /** Off by default: a host that wants the ceremony heard says so. */
   enabled?: boolean;
@@ -795,7 +945,9 @@ export interface SoundOptions {
    * The pull's badge as the platform names it — Grail, Chase, Big Hit, Epic,
    * Rare — which decides how hard the landing hits. Read when the landing is
    * cued, so it may arrive with the card. Without it, `assets.card.badge`'s
-   * label; without either, the landing of a common pull.
+   * label; without either, the landing of a common pull. The climb's hits,
+   * the pack's top tier by construction, come round on an epic's stinger at
+   * least, whatever it says.
    */
   badge?: string | null;
   /**
@@ -805,6 +957,8 @@ export interface SoundOptions {
    * React Native WebView only `data:` URIs are sure to load.
    */
   samples?: Record<string, string>;
+  /** The climb's score (`SoundDesign`), read at every cue; `impact` when not said. */
+  design?: SoundDesign;
 }
 
 export interface PackOpenerOptions {
@@ -822,6 +976,7 @@ export interface PackOpenerOptions {
   charge?: ChargeOptions;
   burst?: BurstOptions;
   carousel?: CarouselOptions;
+  climb?: ClimbOptions;
   sound?: SoundOptions;
 }
 
@@ -845,7 +1000,8 @@ type VariantGroups =
   | 'slice'
   | 'charge'
   | 'burst'
-  | 'carousel';
+  | 'carousel'
+  | 'climb';
 
 export type ResolvedOptions = Resolved<
   Required<Omit<PackOpenerOptions, VariantGroups | 'assets' | 'rest'>>
@@ -872,4 +1028,5 @@ export type ResolvedOptions = Resolved<
   charge?: Resolved<ChargeOptions>;
   burst?: Resolved<BurstOptions>;
   carousel?: Resolved<CarouselOptions>;
+  climb?: Resolved<ClimbOptions>;
 };

@@ -45,7 +45,7 @@ export function createSound(variant: VariantName, initial: Sound): SceneSound {
   const engine = createSoundEngine();
   let current = initial;
   let loading = false;
-  const score = createScore(engine, variant, () => landingTierFor(current.badge));
+  const score = createScore(engine, variant, () => landingTierFor(current.badge), () => current.design ?? 'impact');
 
   const loadBank = () => {
     if (loading) return;
@@ -111,6 +111,35 @@ export function createSound(variant: VariantName, initial: Sound): SceneSound {
           break;
         case MESSAGES.REVEALED:
           score.onEvent({type: 'revealed'});
+          break;
+        case MESSAGES.CARD_SETTLED:
+          score.onEvent({
+            type: 'cardSettled',
+            index: Number(payload.index),
+            colorIndex: typeof payload.colorIndex === 'number' ? payload.colorIndex : undefined,
+            skipped: payload.skipped === true,
+          });
+          break;
+        case MESSAGES.CARD_REVEALED:
+          score.onEvent({
+            type: 'cardRevealed',
+            index: Number(payload.index),
+            skipped: payload.skipped === true,
+          });
+          break;
+        case MESSAGES.HITS_REVEALED:
+          score.onEvent({type: 'hitsRevealed', skipped: payload.skipped === true});
+          break;
+        case MESSAGES.ALL_REVEALED:
+          score.onEvent({type: 'allRevealed', skipped: payload.skipped === true});
+          break;
+        case MESSAGES.CUE:
+          score.onEvent({
+            type: 'cue',
+            name: String(payload.name),
+            index: Number(payload.index ?? -1),
+            ...(typeof payload.value === 'number' ? {value: payload.value} : {}),
+          });
           break;
         default:
           break;

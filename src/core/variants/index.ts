@@ -1,16 +1,19 @@
 import type {VariantModule} from './types';
 import {burst} from './burst';
 import {carousel} from './carousel';
+import {climb} from './climb';
 import {slice} from './slice';
 
 /**
- * Every mechanic the package knows. A new animation style registers here and
- * nothing else in the engine or the wrappers changes.
+ * Every mechanic the package knows. A new animation style registers here;
+ * the engine and the wrappers change only for a command their handle does
+ * not offer yet (see `VariantInstance`).
  */
 export const VARIANTS: Record<string, VariantModule> = {
   [slice.id]: slice,
   [burst.id]: burst,
   [carousel.id]: carousel,
+  [climb.id]: climb,
 };
 
 export const DEFAULT_VARIANT = slice.id;

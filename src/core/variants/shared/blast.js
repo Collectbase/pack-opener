@@ -207,16 +207,20 @@ export class ScreenFlash {
     this.sprite.height = screen.height * 1.3;
   }
 
-  /** `elapsed` is time since the flash was struck, in ms. */
-  play(elapsed, ms, alpha, colors) {
+  /**
+   * `elapsed` is time since the flash was struck, in ms. `hold`, a share of
+   * `ms`, keeps it full before it goes — a white screen, meant as one.
+   */
+  play(elapsed, ms, alpha, colors, hold = 0) {
     const t = elapsed / ms;
     if (t <= 0 || t >= 1) {
       this.clear();
       return;
     }
     // Instant on, quick off — held even a frame too long and it reads as a
-    // white screen rather than as a hit
-    this.sprite.alpha = alpha * Math.pow(1 - t, 2.2);
+    // white screen rather than as a hit, unless that is what is asked for
+    this.sprite.alpha =
+      hold > 0 ? alpha * (t < hold ? 1 : Math.pow(1 - (t - hold) / (1 - hold), 1.6)) : alpha * Math.pow(1 - t, 2.2);
     // Full-stage and additive: not worth a single frame of fill once it is out
     this.sprite.visible = this.sprite.alpha > 0.01;
     this.sprite.tint = colors.rim;

@@ -2,7 +2,8 @@ import {Application, Assets, Texture} from 'pixi.js';
 import {DEFAULT_PEDESTAL_URI} from './variants/shared/defaultPedestal';
 import {MESSAGES} from './config/protocol';
 import {resolveOptions} from './config/resolve';
-import type {PackOpenerOptions, ResolvedOptions} from './config/types';
+import type {ClimbCard, PackOpenerOptions, ResolvedOptions} from './config/types';
+import {loadOwnTexture, releaseTexture} from './runtime/ownTexture';
 import {createSound, type SceneSound} from './sound';
 import {variantOf} from './variants';
 
@@ -22,7 +23,9 @@ export type SetOptionsResult = 'applied' | 'deferred' | 'scene';
 /**
  * The `timeline` event's payload: phase lengths in ms, after `motion.speed`.
  * `spinMs`, `unveilMs` and `beamMs` are the lengths of 0.4's slice phases,
- * still announced for hosts that score by them — deprecated, gone in 0.6.
+ * still announced for hosts that score by them — deprecated, kept for now
+ * (to be removed in a later release). `climb`'s own `spinMs` is one turn of
+ * its items, and stays.
  */
 export type PackOpenerTimeline = Partial<
   Record<
@@ -46,7 +49,14 @@ export type PackOpenerTimeline = Partial<
     | 'factGapMs'
     | 'bannerMs'
     | 'bannerHoldMs'
-    | 'flipMs',
+    | 'flipMs'
+    | 'introMs'
+    | 'reelMinMs'
+    | 'reelMaxMs'
+    | 'stopStaggerMs'
+    | 'flipStaggerMs'
+    | 'hitHoldMs'
+    | 'rollUpMs',
     number
   >
 >;
@@ -59,13 +69,14 @@ function timelineOf(resolved: ResolvedOptions): PackOpenerTimeline {
     charge?: Record<string, unknown>;
     burst?: Record<string, unknown>;
     carousel?: Record<string, unknown>;
+    climb?: Record<string, unknown>;
   };
   const pick = (source: Record<string, unknown> | undefined, key: string) =>
     typeof source?.[key] === 'number' ? (source[key] as number) : undefined;
   const timeline: PackOpenerTimeline = {
     // 0.4's slice phases start with the lid, the charge and the turn — see the
     // slice scene's `announceLegacyPhase`
-    spinMs: o.slice ? pick(o.motion.open, 'ms') : undefined,
+    spinMs: o.slice ? pick(o.motion.open, 'ms') : pick(o.climb, 'spinMs'),
     unveilMs: pick(o.slice, 'chargeMs'),
     beamMs: pick(o.slice, 'flipMs'),
     chargeMs: pick(o.slice, 'chargeMs'),
@@ -86,6 +97,13 @@ function timelineOf(resolved: ResolvedOptions): PackOpenerTimeline {
     bannerMs: pick(o.carousel, 'bannerMs'),
     bannerHoldMs: pick(o.carousel, 'bannerHoldMs'),
     flipMs: pick(o.carousel, 'flipMs') ?? pick(o.slice, 'flipMs'),
+    introMs: pick(o.climb, 'introMs'),
+    reelMinMs: pick(o.climb, 'reelMinMs'),
+    reelMaxMs: pick(o.climb, 'reelMaxMs'),
+    stopStaggerMs: pick(o.climb, 'stopStaggerMs'),
+    flipStaggerMs: pick(o.climb, 'flipStaggerMs'),
+    hitHoldMs: pick(o.climb, 'hitHoldMs'),
+    rollUpMs: pick(o.climb, 'rollUpMs'),
   };
   for (const key of Object.keys(timeline) as (keyof PackOpenerTimeline)[]) {
     if (timeline[key] === undefined) delete timeline[key];
@@ -100,7 +118,90 @@ export interface PackOpenerInstance {
   autoSlice: () => void;
   /** Mix the choice up — the carousel's ring spins on. A no-op for a mechanic without one. */
   shuffle: () => void;
-  /** Put the pack back together and rearm the gesture. */
+  /**
+   * Begin a ceremony that starts on the host's word — the climb's items fly
+   * in and spin until `setCards`. Call it once per batch the player buys,
+   * then `setCards`; a batch shown as several grids sends each grid after
+   * the first with `setCards` alone, once the grid before it is up
+   * (`allRevealed`). Cards sent a moment before are not lost to it: still
+   * loading, they land in this ceremony; already in, the ceremony they began
+   * goes on as this one while it is still spinning. Cards still loading for
+   * a ceremony `start()` began before are dropped with it. Puts the speed
+   * back to 1× — a host showing a faster pace sends `setSpeed` again after
+   * it. A no-op for a mechanic opened by a gesture.
+   */
+  start: () => void;
+  /**
+   * The cards the climb's items turn into, in grid order, and the combo to
+   * write under the grid once they are up — `extras.combo`, the host's own
+   * words. Each card's artwork is loaded first, outside Pixi's shared cache,
+   * decoded no larger than the scene draws a card at
+   * `performance.resolutionCap`, and freed once the scene lets the cards go
+   * (the next batch, `reset()`, `destroy()`): one that fails, or is not in
+   * within `assets.card.timeoutMs`, turns into a blank card. Resolves once
+   * the cards are handed over, not once they are shown; a later call
+   * supersedes one still loading. With no ceremony spinning to take them —
+   * none started, or one whose items have begun to stop or are all up — it
+   * starts one of its own, at the pace `setSpeed` last set. No cards at all
+   * end the ceremony on show — or one of its own — at once, on an empty
+   * grid: `done`, then an `allRevealed` with no cards. A no-op for the other
+   * mechanics.
+   */
+  setCards: (cards: ClimbCard[], extras?: {combo?: string | null}) => Promise<void>;
+  /**
+   * How fast the climb's items spin, as a multiple of their pace — Speed
+   * up's 1, 2, 3 or 4 — from this frame on: the reel (its turns, its
+   * colours, its shortest run) and the items coming to rest one by one,
+   * whatever is under way, never waiting for a reset. The fly-in, the turns
+   * of the cards, the hits, the combo, the prices and the gather always run
+   * at 1×. Phases announced from then on carry their length at that pace. `start()` and `reset()` put it back to 1×; a ceremony
+   * `setCards` starts on its own keeps it. A no-op for the other mechanics.
+   */
+  setSpeed: (multiplier: number) => void;
+  /**
+   * The climb at its end at once: every item stopped on its colour and
+   * turned into its card, every price at its figure, the combo written, no
+   * flash. What the host has not been told yet — `cardSettled`,
+   * `cardRevealed`, `hitsRevealed` — comes now in the usual order, marked
+   * `skipped: true`, then `allRevealed`, once. A ceremony still waiting for
+   * its cards ends the moment they come. With a `setCards` still loading,
+   * the skip is kept for those cards — with nothing started too — and they
+   * land at their end once they are in; until then whatever is on show
+   * plays on at its pace, a ceremony whose earlier cards are already in
+   * included. With nothing loading it is a no-op before `start()` and once
+   * every card is up. A no-op for the other mechanics.
+   */
+  skipToEnd: () => void;
+  /**
+   * The climb's cards `indices` (in grid order) sold since they came: each
+   * goes dark and shows `SOLD` under its price — at once when it is up, once
+   * its price has counted otherwise. Sent while a `setCards` is still
+   * loading, it waits for those cards and tells them. Cards sold with the
+   * purchase come with `sold: true` in `setCards` instead. Indices outside
+   * the grid, or of cards sold already, are passed over. A no-op for the
+   * other mechanics.
+   */
+  markSold: (indices: number[]) => void;
+  /**
+   * Shakes the climb's stage on the host's word — a sold sum reaching the
+   * balance, say: `strength` 0..1 of the hardest blow the scene strikes
+   * itself, scaled by `climb.shake`. The cards move; what is written under
+   * them and the host's page do not. A no-op before `start()` and for the
+   * other mechanics.
+   */
+  shake: (strength?: number) => void;
+  /**
+   * Marks a moment of the host's own with sound — `coins` as a climb's sold
+   * sum sets off for the balance. The scene tells it as `MESSAGES.CUE`; the
+   * score plays what it has for that name, and nothing for a name it does
+   * not know.
+   */
+  cue: (name: string) => void;
+  /**
+   * Put the pack back together and rearm the gesture. The climb goes back to
+   * its empty grid at 1×: cards still loading are dropped, and every card's
+   * artwork is freed.
+   */
   reset: () => void;
   /** Ignore input without tearing the scene down. */
   setEnabled: (value: boolean) => void;
@@ -147,6 +248,45 @@ async function loadTexture(url: string) {
     });
     return Texture.from(image);
   }
+}
+
+/**
+ * The least card artwork is decoded to, in px tall, however small the scene
+ * draws its cards now: a stage with no size yet may grow before they show.
+ */
+const ART_MIN_HEIGHT = 512;
+
+/**
+ * `url` as a texture of the caller's own (`loadOwnTexture`) no taller than
+ * `maxHeight` px, or null once it fails or `timeoutMs` runs out — one that
+ * comes in after that is let go of.
+ */
+function loadOwnWithin(url: string, timeoutMs: number, maxHeight: number): Promise<Texture | null> {
+  if (!url) return Promise.resolve(null);
+  return new Promise(resolve => {
+    let over = false;
+    const timer = setTimeout(() => {
+      over = true;
+      resolve(null);
+    }, Math.max(0, timeoutMs));
+    loadOwnTexture(url, maxHeight).then(
+      texture => {
+        if (over) {
+          releaseTexture(texture);
+          return;
+        }
+        over = true;
+        clearTimeout(timer);
+        resolve(texture);
+      },
+      () => {
+        if (over) return;
+        over = true;
+        clearTimeout(timer);
+        resolve(null);
+      },
+    );
+  });
 }
 
 /**
@@ -257,8 +397,12 @@ export async function createPackOpener(
     app.ticker.maxFPS = current.performance.maxFps;
   };
 
+  let destroyed = false;
+
   const tick = (ticker: {deltaMS: number}) => {
     scene.update(ticker.deltaMS);
+    // Torn down by the host from inside an event the frame sent: the app is gone
+    if (destroyed) return;
     const wanted = frameCapFor(scene.activity ?? 'busy');
     if (app.ticker.maxFPS !== wanted) {
       app.ticker.maxFPS = wanted;
@@ -308,7 +452,7 @@ export async function createPackOpener(
     // Letting go outside the window swallows the pointerup, so the button state
     // is the only honest word on whether the drag is still going
     if (event.buttons === 0 && event.pointerType === 'mouse') {
-      onUp(event);
+      onCancel(event);
       return;
     }
     const p = local(event);
@@ -326,6 +470,28 @@ export async function createPackOpener(
     }
     scene.onUp();
   };
+  /**
+   * The gesture taken away rather than finished: the browser claimed it
+   * (`pointercancel`), or a mouse was let go outside the window. A scene that
+   * tells a tap from a drag drops it; to any other it is a release, as it
+   * always was.
+   */
+  const onCancel = (event: PointerEvent) => {
+    if (!dragging) {
+      return;
+    }
+    dragging = false;
+    try {
+      canvas.releasePointerCapture(event.pointerId);
+    } catch {
+      /* already released */
+    }
+    if (scene.onCancel) {
+      scene.onCancel();
+    } else {
+      scene.onUp();
+    }
+  };
 
   const onDragStart = (event: Event) => event.preventDefault();
 
@@ -333,15 +499,29 @@ export async function createPackOpener(
    * A rotated phone or a resized window leaves the pack sized for a stage that
    * is gone, so the scene re-derives it. The scene reports the new geometry
    * itself — it does the same after a retune, which changes it just as much.
+   * A resized canvas is blank until it is drawn again, and a sleeping scene
+   * would leave it so until its next tick, up to a second later — so it is
+   * woken.
    */
-  const onResize = () => scene.resize?.();
+  const onResize = () => {
+    scene.resize?.();
+    wake();
+  };
   app.renderer.on('resize', onResize);
 
   canvas.addEventListener('dragstart', onDragStart);
   canvas.addEventListener('pointerdown', onDown);
   canvas.addEventListener('pointermove', onMove);
   canvas.addEventListener('pointerup', onUp);
-  canvas.addEventListener('pointercancel', onUp);
+  canvas.addEventListener('pointercancel', onCancel);
+
+  // The latest `setCards` still loading. A later one, a reset or the end drops
+  // it, and so does `start()` when it was sent for the ceremony `start()`
+  // replaces (`own`); sent with nothing waiting, it lands in the next one.
+  // `skip`: `skipToEnd()` came meanwhile, so the ceremony ends once it lands;
+  // `sold`: cards of it `markSold()` named meanwhile, told once it lands
+  let cardsCall = 0;
+  let loading: {call: number; own: boolean; skip: boolean; sold: number[]} | null = null;
 
   emit(MESSAGES.READY, {
     width: app.screen.width,
@@ -397,7 +577,111 @@ export async function createPackOpener(
       wake();
       scene.shuffle();
     },
+    start: () => {
+      if (!scene.start) return;
+      // Cards loading for the ceremony this one replaces go with it; sent with
+      // nothing waiting for them, they are this one's
+      if (loading?.own) {
+        cardsCall++;
+        loading = null;
+      } else if (loading) {
+        loading.own = true;
+      }
+      wake();
+      scene.start();
+    },
+    setCards: async (cards: ClimbCard[], extras?: {combo?: string | null}) => {
+      if (!scene.setCards) return;
+      const call = ++cardsCall;
+      // A skip asked for the batch this one supersedes holds for this one
+      const mine = {call, own: !!scene.awaitingCards, skip: loading?.skip ?? false, sold: [] as number[]};
+      loading = mine;
+      const list = Array.isArray(cards) ? cards : [];
+      const timeoutMs = current.assets.card.timeoutMs;
+      // No taller than the tallest card is drawn, at the sharpest the canvas
+      // may get: a photo many times that would be held whole for the batch
+      const sharpest = Math.max(current.performance.resolutionCap, app.renderer.resolution);
+      const maxHeight = Math.max(ART_MIN_HEIGHT, Math.ceil((scene.cardHeight ?? Infinity) * sharpest));
+      // The cards go to the scene at once — the items stop on their colours
+      // without waiting on any artwork — and each artwork follows as it
+      // loads: a card waits for its own only to turn. One load per artwork,
+      // shared by the cards that repeat it; a url may come as a promise of one
+      const loads = new Map<unknown, {load: Promise<Texture | null>; indices: number[]}>();
+      list.forEach((card, i) => {
+        const key = card?.url ?? '';
+        let entry = loads.get(key);
+        if (!entry) {
+          const load = Promise.resolve(key)
+            .catch(() => '')
+            .then(url => loadOwnWithin(typeof url === 'string' ? url : '', timeoutMs, maxHeight));
+          entry = {load, indices: []};
+          loads.set(key, entry);
+        }
+        entry.indices.push(i);
+      });
+      loading = null;
+      wake();
+      scene.setCards(
+        list.map(card => ({
+          pending: true,
+          texture: null,
+          color: card?.color,
+          hit: !!card?.hit,
+          price: card?.price ?? null,
+          tier: card?.tier ?? null,
+          sold: !!card?.sold,
+        })),
+        extras?.combo ?? null,
+      );
+      const token = scene.cardsToken;
+      if (mine.sold.length) scene.markSold?.(mine.sold);
+      if (mine.skip) scene.skipToEnd?.();
+      await Promise.all(
+        [...loads.values()].map(async ({load, indices}) => {
+          const texture = await load;
+          const live = !destroyed && call === cardsCall;
+          const taken = live && indices.map(i => !!scene.giveFace?.(token, i, texture)).some(Boolean);
+          if (!taken) releaseTexture(texture);
+          else wake();
+        }),
+      );
+    },
+    setSpeed: (multiplier: number) => {
+      if (!scene.setSpeed) return;
+      wake();
+      scene.setSpeed(multiplier);
+    },
+    skipToEnd: () => {
+      if (!scene.skipToEnd) return;
+      wake();
+      if (loading) {
+        loading.skip = true;
+      } else {
+        scene.skipToEnd();
+      }
+    },
+    markSold: (indices: number[]) => {
+      if (!scene.markSold) return;
+      const list = Array.isArray(indices) ? indices : [];
+      // Indices of the cards still loading: the scene's are another batch's
+      if (loading) {
+        loading.sold.push(...list);
+        return;
+      }
+      wake();
+      scene.markSold(list);
+    },
+    shake: (strength?: number) => {
+      if (!scene.shake) return;
+      wake();
+      scene.shake(strength);
+    },
+    cue: (name: string) => {
+      if (typeof name === 'string' && name) emit(MESSAGES.CUE, {name, index: -1});
+    },
     reset: () => {
+      cardsCall++;
+      loading = null;
       wake();
       scene.reset();
       sound?.reset();
@@ -407,12 +691,13 @@ export async function createPackOpener(
       scene.setEnabled(value);
     },
     destroy: () => {
+      destroyed = true;
       app.renderer.off('resize', onResize);
       canvas.removeEventListener('dragstart', onDragStart);
       canvas.removeEventListener('pointerdown', onDown);
       canvas.removeEventListener('pointermove', onMove);
       canvas.removeEventListener('pointerup', onUp);
-      canvas.removeEventListener('pointercancel', onUp);
+      canvas.removeEventListener('pointercancel', onCancel);
       app.ticker.remove(tick);
       scene.destroy?.();
       sound?.destroy();

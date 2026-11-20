@@ -1,5 +1,174 @@
 # Changelog
 
+## 0.6.0
+
+**A fourth mechanic, `climb`, opens the whole purchase on one stage.** The
+`climb` variant, with its `spectrum` preset: one pack flies in from the
+centre and splits into a grid of as many as were bought (`climb.count` — one
+alone and large, more in the columns that show them largest), each the
+pack's own artwork in its own silhouette, and they spin in
+perspective, each in a colour of its own out of `climb.cycleColors`, changed
+at moments of its own and kept clear of its neighbours', so nothing in the
+spin gives the pull away. The colours keep pace with the spin: each is held
+for a share of one turn, `climb.spinMs`, so `motion.speed` hurries them too.
+The host starts it on its own word — `start()`, the moment the player buys —
+and hands the cards over once the purchase answers:
+`setCards(cards, {combo})`, each card's artwork, the colour of its tier,
+whether it is a hit and its price. Once they are in and the reel has run
+`climb.reelMinMs` from the start, the items stop one by one in grid order,
+each taking its card's colour only as it comes to rest; the ordinary cards
+turn over in grid order, each with its price over its top edge in the host's
+own format (`climb.price`) — large, gold, there at once and counted up in a
+blink, with stars at its sides — and its tier under it; the hits wait,
+tremble, then turn together under a white flash (`climb.flash`); the combo —
+the host's own words, `DOUBLE GRAIL` or `MATCH ×3 · GRAIL` — is written under
+the grid in the hits' light; and then the prices leave their cards and fly
+together to where the host writes the total (phase `gather`, before `done`;
+`climb.gatherY`), each card keeping a small price under its tier. A tap on a
+card after that is the host's to answer. The next ceremony whisks the cards
+on show away with a jolt.
+
+The reel is short and loud: the fly-in takes half a second, the reel's
+shortest run 1.3 s from the start, and the stops come as a cascade over in
+half a second however many items there are (`stopStaggerMs` 120, closer on
+a big grid). A spinning pack is flooded with its colour as a coloured foil
+(`climb.flood`, 0.85), the artwork showing through, and it flashes to a
+fresh colour every time it stands edge-on, every half turn.
+
+**Three sound designs for the climb** (`sound.design`, chosen by ear):
+`impact` (the default) — a deep pulse while the packs spin, closer and
+louder towards the stop and hurried with Speed up, a riser ending on the
+stop, one lock cascade for every stop, a glass pop for each pack bursting
+(deeper and fuller the higher its tier), a drum roll as the hits tremble, a
+sub boom under the flash and a shimmer for their rays, a drum for every beat
+of the combo; `arcade` — a ratchet the whole reel, a clack for every stop, a
+fanfare on the hits, a shower of coins; `music` — every moment a note of one
+chord on a kalimba: the stops climb a pentatonic, each card sounds its tier,
+the hits a chord. All three: a rubber stamp for a card sold, the coins and
+their landing in the balance (`cue('ding')`), a whoosh for Speed up. The
+scene tells the new moments as `MESSAGES.CUE` (`pulse`, `riser`, `burst`,
+`rattle`, `beat`, `stamp`, `speed`, each with its `value` where it has one).
+The sound engine now ends on a limiter and keeps at most three voices of one
+cue at once.
+
+**The opening hits harder.** A pack no longer turns over: it bursts off its
+card in pieces of its own coloured foil, drawn in the pack's shader, that
+fly out over the grid and tumble away while the card punches up in its place
+(`climb.reveal` `shatter`, the preset's; `flare`, `motes` and `pixels` still
+turn). As the hits come round the whole screen goes white for a moment and
+fades; then each hit stands in a burst of rays of its colour, turning slowly
+and swelling on every beat of the combo, and the whole stage fills with a
+haze of the best colour shown — faint for an ordinary card, full for the
+hits — until the next ceremony begins.
+
+`setSpeed(m)` hurries the spin alone from the next frame — the reel, its
+colours, its shortest run and the items coming to rest one by one; the
+fly-in, the cards turning, the hits, the combo, the prices and the gather
+keep their own pace — and `skipToEnd()` lands it at its
+end at once, with no flash, telling the host what it has not heard yet in the
+usual order, marked `skipped: true`; sent right after `setCards`, it waits for
+those cards and lands them at their end. `start()` and `reset()` put the
+speed back to 1×, and a batch shown as several grids sends each grid after
+the first with `setCards` alone, at the pace already set. The events are new
+— `cardSettled`, with its colour's place in the palette (`colorIndex`),
+`cardRevealed`, `hitsRevealed`, `allRevealed` (once per ceremony that gets
+there, whatever the host calls from inside its events) and `cardTap` — and so
+are the `phase` names `intro`, `reel`, `settle`, `turn`, `hits`, `combo` and
+`done`; the `timeline` carries `introMs`, `spinMs`, `reelMinMs`,
+`stopStaggerMs`, `flipStaggerMs`, `hitHoldMs` and `rollUpMs`. A `setCards`
+with no cards ends the ceremony at once on an empty grid, with `done` and an
+`allRevealed` that lists none. The cards' artwork is loaded outside Pixi's
+shared cache, decoded no larger than the climb draws a card at
+`performance.resolutionCap`, and freed once the scene lets the cards go, so
+a session of many purchases does not grow and a phone's photos are never
+held at full size.
+
+The React component has the same commands on its handle, and the events as
+`onCardSettled`, `onCardRevealed`, `onHitsRevealed`, `onAllRevealed` and
+`onCardTap`. Commands sent before its scene is up wait for it and run in
+order; once none is coming — unmounted, or its mount failed — they are
+dropped as they are sent, and a dropped `setCards` resolves. With `sound` on
+the climb has a score of its own, out of the baked cues: a whoosh as the
+items fly in, a soft tick under the reel, a click for each item at rest that
+rises with its tier, a swish per card, the stinger as the hits come round —
+an epic's at least, since the hits are the pack's top tier, a grail's when
+`sound.badge` names one — and an impact under the combo; what a skip passes
+over stays silent. The native wrapper has no `start` or `setCards` yet, so
+the climb runs on the web.
+
+Two changes reach every mechanic, and neither changes what one does. A
+press the browser takes away (`pointercancel`), or a mouse let go outside
+the window, now reaches a scene that tells a tap from a drag as a gesture
+taken away, so the climb counts it as no tap; every other mechanic hears it
+as a release, as before. And a window resized while the scene sleeps is
+drawn on the next frame, rather than up to a second later with the canvas
+blank in between.
+
+`slice`, `burst` and `carousel` are otherwise unchanged. The 0.4 slice phase
+names (`spin`, `spinHold`, `unveil`, `beam`) and slice's `spinMs`,
+`unveilMs` and `beamMs` timeline keys, which 0.5.1 said would go in 0.6,
+stay for now: still deprecated, they go in a later release. The `spectrum`
+preset: one item; white, green, blue, purple, red and gold (`#ffffff` to
+`#ffc400`), lowest tier first; `tint` 0.25; the flash on; prices in `$` to
+two decimals in a system family (`climb.font`); a 700 ms fly-in, a 900 ms
+turn, the first stop no sooner than 1.8 s in, stops 280 ms and turns 220 ms
+apart, the hits held 900 ms and the prices counting for 500 ms.
+
+How the result reads: the grid takes the columns that show a batch largest
+on the stage it has (ten stand 4-4-2 on a phone, 5-5 on a wide screen),
+every card in one shape — the artwork whole on light paper — and under each
+its price and, when the host names it (`ClimbCard.tier`), its tier in the
+tier's light, lifted towards white so it reads on a stage of its own colour,
+as the light round every item is. A card sold with the purchase
+(`ClimbCard.sold`) dims once its price has counted and is stamped across
+its face — `SOLD` in red ink in a double frame, slanted, coming down large
+and landing pressed in, as a rubber stamp does (already there on a skip) —
+with `SOLD` in place of its tier; `markSold(indices)` tells the same of
+cards sold later.
+
+A spinning pack is drawn as a pack is: flat at its sealed edges and swelling
+over the card inside it, point by point in perspective, the slopes of the
+swell in shade or catching the light as it turns, the whole of it darker the
+further it turns from the eye. The light is worked into the artwork's own
+pixels, so it falls only where the pack is and never past its outline. A
+card, turned over, is flat.
+
+**Sound for the climb**, chosen by ear: a swoosh as each item takes off into
+its spin, a lock-tap as each comes to rest (each a little higher), a blow as
+the first card lands and a flip for each card, a glass hit for the hits, a
+rush of air as the prices gather, a whoosh as the cards on show leave, and
+clinking coins on the host's word. The scene tells the moments it has no
+other message for as `MESSAGES.CUE` (`takeoff` with the item's `index`,
+`leave`), and `opener.cue(name)` lets the host mark one of its own (`coins`
+as a sold sum sets off). The reel's tick is gone.
+
+The reel starts the way the items would if each were spun by hand: not
+together and not in a row but in an order drawn afresh every time, each
+turning slowly at first, then taking off all at once — a little past its
+speed, and back to it — and each at a speed of its own from there, one and a
+half to two times the `spinMs` turn. A pack alone throws the stage as it
+takes off.
+
+What the reveal throws off: a card coming face up pops its light, throws a
+burst in its colour — `climb.reveal`: `flare`, `motes` or `pixels`, all of
+them light and none of them debris — and takes a band of sheen
+(`climb.sparkle`, on); a hit throws about twice as much, gets a star at its
+corner and a wider light that stays. Dust rises behind the stage all the
+time and is shaken with it (`climb.dust`, on). The stage takes the blows (`climb.shake`, 0..1,
+1): the pack bursting into the grid, the first card landing on its face (a
+card alone the harder the higher its tier), the hits coming round under the
+flash and landing, and every beat of the combo — which now slams down, gives
+a little and counts the hits out, each pulsing in its turn; `shake(strength)`
+strikes on the host's word. A shake is a run of poses held a thirtieth of a
+second each, so it reads as hard on a 60 fps screen as on a 30 fps one, and
+it is not hurried with the ceremony. The cards move as one; what is written
+under them stands still. The scene is at rest again once the last shard has
+gone, and a skipped ceremony throws and shakes nothing.
+
+Card artwork whose fetch is refused is asked for once more past the browser's
+cache before the scene gives up on it: a page that has shown the same URL in
+a plain `<img>` can leave it cached without the CORS header.
+
 ## 0.5.16
 
 **The slice charge cycle ends on the pull's colour.** With

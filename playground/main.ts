@@ -44,7 +44,7 @@ const GROUPS: {title: string; variants?: string[]; controls: Control[]}[] = [
   {
     title: 'Mechanic',
     controls: [
-      {kind: 'select', path: 'variant', label: 'Variant', options: ['slice', 'burst', 'carousel']},
+      {kind: 'select', path: 'variant', label: 'Variant', options: ['slice', 'burst', 'carousel', 'climb']},
     ],
   },
   {
@@ -448,7 +448,52 @@ const CAROUSEL_GROUPS: {title: string; variants?: string[]; controls: Control[]}
   },
 ];
 
-GROUPS.push(...BURST_GROUPS, ...CAROUSEL_GROUPS);
+const CLIMB_GROUPS: {title: string; variants?: string[]; controls: Control[]}[] = [
+  {
+    title: 'Climb',
+    variants: ['climb'],
+    controls: [
+      {kind: 'range', path: 'climb.count', label: 'Items on the grid', min: 1, max: 16, step: 1},
+      {
+        kind: 'plain',
+        path: 'climb.cycleColors',
+        label: 'Colours, lowest tier first, comma separated',
+        placeholder: '#ffffff, #97d926, #0da7f2, #8442f0, #ff3b3b, #ffc400',
+        // Empty is the preset's palette, not a reel with nothing to show
+        parse: raw => {
+          const colours = raw.split(',').map(c => c.trim()).filter(Boolean);
+          return colours.length > 0 ? colours : undefined;
+        },
+        format: value => (Array.isArray(value) ? value.join(', ') : ''),
+      },
+      {kind: 'range', path: 'climb.tint', label: 'Artwork takes the colour', min: 0, max: 1, step: 0.05},
+      {
+        kind: 'plain',
+        path: 'climb.flash',
+        label: 'Flash as the hits turn (on / off)',
+        placeholder: 'on',
+        // On in the preset, so only an explicit "off" turns it off
+        parse: raw => raw.trim() !== 'off',
+        format: value => (value === false ? 'off' : 'on'),
+      },
+    ],
+  },
+  {
+    title: 'Climb timing',
+    variants: ['climb'],
+    controls: [
+      {kind: 'range', path: 'climb.introMs', label: 'Fly in and split, ms', min: 100, max: 3000, step: 50},
+      {kind: 'range', path: 'climb.spinMs', label: 'One turn of the spin, ms', min: 200, max: 3000, step: 50},
+      {kind: 'range', path: 'climb.reelMinMs', label: 'Shortest reel, from the start, ms', min: 0, max: 6000, step: 100},
+      {kind: 'range', path: 'climb.stopStaggerMs', label: 'Between stops, ms', min: 0, max: 600, step: 10},
+      {kind: 'range', path: 'climb.flipStaggerMs', label: 'Between turns, ms', min: 0, max: 600, step: 10},
+      {kind: 'range', path: 'climb.hitHoldMs', label: 'Hits held back, ms', min: 0, max: 3000, step: 50},
+      {kind: 'range', path: 'climb.rollUpMs', label: 'Price counts up, ms', min: 50, max: 3000, step: 50},
+    ],
+  },
+];
+
+GROUPS.push(...BURST_GROUPS, ...CAROUSEL_GROUPS, ...CLIMB_GROUPS);
 
 /** Stand-in artwork so the playground works with no assets at hand. */
 function placeholder(w: number, h: number, label: string, from: string, to: string) {
@@ -513,6 +558,37 @@ const log = document.querySelector<HTMLOListElement>('#log')!;
 let instance: PackOpenerInstance | null = null;
 let generation = 0;
 
+/** The climb's prices for its eight stand-in cards; the third and the seventh are the hits. */
+const CLIMB_PRICES = [0.37, 1.24, 64.2, 2.15, 0.88, 3.4, 120, 0.52];
+const CLIMB_HITS = [2, 6];
+
+/**
+ * A purchase as a host hands it over: eight cards, the hits in the top
+ * colour of the palette the reel runs on and the rest round the colours
+ * under it, so each item stops on one the reel showed.
+ */
+function climbCards() {
+  const palette =
+    (get('climb.cycleColors') as string[] | undefined) ??
+    resolvedPreview.climb?.cycleColors ??
+    ['#ffffff'];
+  const top = palette.length - 1;
+  return CLIMB_PRICES.map((price, i) => {
+    const hit = CLIMB_HITS.includes(i);
+    const color = hit ? palette[top] : palette[i % Math.max(1, top)];
+    return {url: placeholder(420, 588, `#${i + 1}`, '#1d2346', color), color, hit, price};
+  });
+}
+
+/** Speed up's steps; `start()` and `reset()` put the climb back on the first. */
+const SPEEDS = [1, 2, 3, 4];
+let speed = 1;
+const speedButton = document.querySelector<HTMLButtonElement>('#speed')!;
+const showSpeed = (next: number) => {
+  speed = next;
+  speedButton.textContent = `Speed ${speed}×`;
+};
+
 function note(text: string) {
   const li = document.createElement('li');
   li.textContent = text;
@@ -531,8 +607,13 @@ async function mount() {
   try {
     const created = await createPackOpener(stage, options, {
       onEvent: event => {
-        const extra =
-          event.type === 'tick' ? ` ${Number(event.progress).toFixed(2)}` : '';
+        let extra = '';
+        if (event.type === 'tick') extra = ` ${Number(event.progress).toFixed(2)}`;
+        else if (event.type === 'phase') extra = ` ${String(event.name)}`;
+        else if (typeof event.index === 'number') extra = ` ${event.index}`;
+        else if (Array.isArray(event.cards)) extra = ` ${event.cards.length}`;
+        // What `skipToEnd()` told at once, with the rest
+        if (event.skipped) extra += ' (skipped)';
         note(`${event.type}${extra}`);
       },
     });
@@ -541,6 +622,7 @@ async function mount() {
       return;
     }
     instance = created;
+    showSpeed(1);
   } catch (error) {
     note(`failed: ${String((error as Error)?.message || error)}`);
   }
@@ -559,6 +641,7 @@ const apply = () => {
       void mount();
     } else if (result === 'deferred') {
       instance.reset();
+      showSpeed(1);
     }
   }, 120);
 };
@@ -597,7 +680,7 @@ function buildPanel() {
           set(control.path, input.value);
           // A mechanic brings its own preset and its own knobs, so the panel
           // is rebuilt around it rather than left offering the old ones
-          for (const key of ['interaction', 'hint', 'slice', 'charge', 'burst', 'carousel']) {
+          for (const key of ['interaction', 'hint', 'slice', 'charge', 'burst', 'carousel', 'climb']) {
             delete (options as Record<string, unknown>)[key];
           }
           resolvedPreview = resolveOptions({
@@ -673,9 +756,28 @@ function resolvedDefault(path: string): number | string {
   );
 }
 
-document.querySelector('#replay')!.addEventListener('click', () => instance?.reset());
+document.querySelector('#replay')!.addEventListener('click', () => {
+  instance?.reset();
+  showSpeed(1);
+});
 document.querySelector('#auto')!.addEventListener('click', () => instance?.autoSlice());
 document.querySelector('#shuffle')!.addEventListener('click', () => instance?.shuffle());
+
+// The climb starts on the host's word, as a purchase does: Start is the
+// player buying, Cards the purchase answering — eight cards, two of them
+// hits, and the host's own combo line
+document.querySelector('#start')!.addEventListener('click', () => {
+  instance?.start();
+  showSpeed(1);
+});
+document
+  .querySelector('#cards')!
+  .addEventListener('click', () => void instance?.setCards(climbCards(), {combo: 'DOUBLE GRAIL'}));
+speedButton.addEventListener('click', () => {
+  showSpeed(SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length]);
+  instance?.setSpeed(speed);
+});
+document.querySelector('#skip')!.addEventListener('click', () => instance?.skipToEnd());
 
 buildPanel();
 mount();
