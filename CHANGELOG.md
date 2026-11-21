@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.1
+
+**The carousel's whooshes all play again.** 0.6.0 let a cue sound at most
+three voices at once, stopping the oldest — but the carousel schedules one
+`ring-whoosh` per fact ahead of time, so with four or five beats the first
+whooshes were cut short or never heard. Only a voice already sounding now
+gives way; cues scheduled ahead on purpose all play.
+
 ## 0.6.0
 
 **A fourth mechanic, `climb`, opens the whole purchase on one stage.** The

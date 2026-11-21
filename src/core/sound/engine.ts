@@ -81,6 +81,8 @@ export function createSoundEngine(): SoundEngine {
   const buffers = new Map<string, AudioBuffer>();
   const voices = new Set<Voice>();
   const byCue = new Map<string, Voice[]>();
+  // When each voice starts sounding (context time); a delayed cue is queued, not yet heard.
+  const startsAt = new WeakMap<Voice, number>();
 
   const ensure = (): AudioContext | null => {
     if (context || closed) return context;
@@ -189,7 +191,16 @@ export function createSoundEngine(): SoundEngine {
       };
       voices.add(voice);
       same.push(voice);
-      if (same.length > VOICES_PER_CUE) same.shift()?.stop(30);
+      startsAt.set(voice, at);
+      if (same.length > VOICES_PER_CUE) {
+        // Only a voice already sounding gives way: cues scheduled ahead on purpose (the carousel's whoosh per fact)
+        // all play
+        const oldest = same.find((v) => (startsAt.get(v) ?? 0) <= ctx.currentTime);
+        if (oldest) {
+          same.splice(same.indexOf(oldest), 1);
+          oldest.stop(30);
+        }
+      }
       return voice;
     },
     stopAll(fadeMs = 0) {
